@@ -19,7 +19,7 @@ function eventOnDay(ev, day) {
 }
 
 export default function CalendarGrid({
-  monthDate, mode, events, txs, anniv = {}, profiles,
+  monthDate, mode, events, txs, anniv = {}, previews = {}, profiles,
   onSelectDay, onSwipe, onMoveEvent, onDeleteEvent,
 }) {
   const days = useMemo(() => {
@@ -160,6 +160,7 @@ export default function CalendarGrid({
           const inMonth = isSameMonth(day, monthDate)
           const dayEvents = showEvents ? events.filter((ev) => eventOnDay(ev, day)) : []
           const sums = txByDate[key]
+          const plan = previews[key]
           return (
             <button
               key={key}
@@ -192,10 +193,12 @@ export default function CalendarGrid({
               {dayEvents.length > maxChips && (
                 <span className="chip more">+{dayEvents.length - maxChips}</span>
               )}
-              {showMoney && sums && (
+              {showMoney && (sums || plan) && (
                 <span className="amts">
-                  {sums.expense > 0 && <span className="amt expense num">-{compactWon(sums.expense)}</span>}
-                  {sums.income > 0 && <span className="amt income num">+{compactWon(sums.income)}</span>}
+                  {sums?.expense > 0 && <span className="amt expense num">-{compactWon(sums.expense)}</span>}
+                  {sums?.income > 0 && <span className="amt income num">+{compactWon(sums.income)}</span>}
+                  {plan?.expense > 0 && <span className="amt expense plan num">🔁-{compactWon(plan.expense)}</span>}
+                  {plan?.income > 0 && <span className="amt income plan num">🔁+{compactWon(plan.income)}</span>}
                 </span>
               )}
             </button>

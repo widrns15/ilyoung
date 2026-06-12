@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, differenceInCalendarDays, format, isSameMonth } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
@@ -10,7 +10,7 @@ import TxModal from '../components/TxModal'
 import StatsView from './StatsView'
 import SettingsSheet from './SettingsSheet'
 import { won } from '../lib/meta'
-import { runRecurringRules } from '../lib/recurrence'
+import { runRecurringRules, upcomingPreviews } from '../lib/recurrence'
 import { anniversaryMarks, dday } from '../lib/anniversary'
 
 const TABS = [
@@ -30,6 +30,22 @@ export default function Shell() {
   useEffect(() => {
     runRecurringRules(profile.couple_id).then((n) => { if (n) reload() })
   }, [profile.couple_id]) // eslint-disable-line
+
+  // 활성 반복 규칙: 미래 도래일을 캘린더에 예정으로 미리 보여주기 위해
+  const [rules, setRules] = useState([])
+  const fetchRules = useCallback(async () => {
+    const { data } = await supabase
+      .from('recurring_rules')
+      .select('*')
+      .eq('couple_id', profile.couple_id)
+      .eq('active', true)
+    setRules(data || [])
+  }, [profile.couple_id])
+  useEffect(() => {
+    fetchRules()
+    window.addEventListener('focus', fetchRules)
+    return () => window.removeEventListener('focus', fetchRules)
+  }, [fetchRules])
 
   const [selectedDay, setSelectedDay] = useState(null)
   const [eventModal, setEventModal] = useState(null) // { initial?, day }
@@ -51,6 +67,11 @@ export default function Shell() {
   const annivMarks = useMemo(
     () => (couple?.anniversary ? anniversaryMarks(couple.anniversary, range.start, range.end) : {}),
     [couple?.anniversary, range]
+  )
+
+  const previewMap = useMemo(
+    () => upcomingPreviews(rules, range.start, range.end),
+    [rules, range]
   )
 
   const moveMonth = (d) => setMonthDate((m) => addMonths(m, d))
@@ -155,6 +176,7 @@ export default function Shell() {
               events={events}
               txs={txs}
               anniv={annivMarks}
+              previews={previewMap}
               profiles={profiles}
               onSelectDay={setSelectedDay}
               onSwipe={moveMonth}
@@ -210,7 +232,9 @@ export default function Shell() {
           onSaved={reload}
         />
       )}
-      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsSheet onClose={() => { setShowSettings(false); fetchRules() }} />
+      )}
     </div>
   )
 }

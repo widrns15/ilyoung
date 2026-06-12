@@ -5,7 +5,7 @@ const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
 // 마지막 부팅 결과 캐시: 재방문 시 서버 응답을 기다리지 않고 바로 진입
-const CACHE_KEY = 'duri-couple-cache'
+const CACHE_KEY = '1+0-couple-cache'
 
 function readCoupleCache(userId) {
   try {
@@ -25,7 +25,10 @@ export function AppProvider({ children }) {
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
 
-  const [theme, setTheme] = useState(() => localStorage.getItem('duri-theme') || 'system')
+  const [theme, setTheme] = useState(
+    // 구버전 키(duri-theme)에서 한 번 이어받는다
+    () => localStorage.getItem('1+0-theme') || localStorage.getItem('duri-theme') || 'system'
+  )
 
   useEffect(() => {
     const root = document.documentElement

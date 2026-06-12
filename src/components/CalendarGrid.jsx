@@ -54,7 +54,8 @@ export default function CalendarGrid({
     const ev = chipEl
       ? dayEvents.find((x) => x.id === chipEl.dataset.ev)
       : dayEvents.length === 1 ? dayEvents[0] : null
-    if (!ev) return
+    // 가상(반복) 일정은 개별 이동/삭제 불가 — 규칙에서만 수정
+    if (!ev || ev.virtual) return
     const el = e.currentTarget
     const p = { ev, x: e.clientX, y: e.clientY, id: e.pointerId, el, dragging: false }
     p.timer = setTimeout(() => {

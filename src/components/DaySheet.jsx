@@ -36,6 +36,7 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
               <span className="grow">
                 <span className="t1">{ev.title}</span>
                 <span className="t2">
+                  {ev.virtual && '🔁 '}
                   {ev.all_day ? '하루 종일' : `${format(new Date(ev.starts_at), 'HH:mm')} – ${format(new Date(ev.ends_at), 'HH:mm')}`}
                   {' · '}{nameOf(ev.created_by)}
                 </span>

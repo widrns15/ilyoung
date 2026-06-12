@@ -64,20 +64,26 @@ export default function Sheet({ onClose, label, children }) {
   const dragging = drag.current?.active || dy > 0
   return (
     <>
-      <div className={`sheet-backdrop ${depth > 0 ? 'deep' : ''}`} onClick={onClose} />
+      {/* 중첩 시트는 z-index를 올려 딤이 뒤 시트까지 덮게 한다 */}
+      <div
+        className={`sheet-backdrop ${depth > 0 ? 'deep' : ''}`}
+        style={depth > 0 ? { zIndex: 40 + depth * 2 } : undefined}
+        onClick={onClose}
+      />
       <div
         ref={ref}
         className="sheet"
         role="dialog"
         aria-label={label}
-        style={
-          dragging || settling
+        style={{
+          ...(depth > 0 ? { zIndex: 41 + depth * 2 } : null),
+          ...(dragging || settling
             ? {
                 transform: `translate(-50%, ${dy}px)`,
                 transition: settling ? 'transform 0.2s ease' : 'none',
               }
-            : undefined
-        }
+            : null),
+        }}
         onTransitionEnd={() => setSettling(false)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

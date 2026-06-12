@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, won } from '../lib/meta'
+import Sheet from './Sheet'
 
 export default function TxModal({ initial, defaultDay, events, onClose, onSaved }) {
   const { profile, guard, toast } = useApp()
@@ -65,10 +66,7 @@ export default function TxModal({ initial, defaultDay, events, onClose, onSaved 
   }
 
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-label={editing ? '내역 수정' : '내역 추가'}>
-        <div className="sheet-handle" />
+    <Sheet onClose={onClose} label={editing ? '내역 수정' : '내역 추가'}>
         <div className="sheet-head">
           <span className="sheet-title">{editing ? '내역 수정' : '새 내역'}</span>
         </div>
@@ -121,7 +119,6 @@ export default function TxModal({ initial, defaultDay, events, onClose, onSaved 
           <button className="btn" disabled={busy}>{editing ? '저장' : '추가하기'}</button>
           {editing && <button type="button" className="btn danger" onClick={remove}>내역 삭제</button>}
         </form>
-      </div>
-    </>
+    </Sheet>
   )
 }

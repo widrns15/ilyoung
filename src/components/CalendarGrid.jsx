@@ -1,12 +1,13 @@
-import { useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   addDays, eachDayOfInterval, endOfMonth, endOfWeek, format,
-  isSameDay, isSameMonth, isToday, startOfMonth, startOfWeek,
+  isSameMonth, isToday, startOfMonth, startOfWeek,
 } from 'date-fns'
 import { HOLIDAYS_KR } from '../lib/holidays'
 import { compactWon } from '../lib/meta'
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
+const LONG_PRESS_MS = 450
 
 // 일정이 해당 날짜에 걸쳐 있는지 (다일 일정 지원)
 function eventOnDay(ev, day) {
@@ -17,7 +18,10 @@ function eventOnDay(ev, day) {
   return s < d1 && e >= d0
 }
 
-export default function CalendarGrid({ monthDate, mode, events, txs, profiles, onSelectDay, onSwipe }) {
+export default function CalendarGrid({
+  monthDate, mode, events, txs, anniv = {}, profiles,
+  onSelectDay, onSwipe, onMoveEvent, onDeleteEvent,
+}) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(monthDate), { weekStartsOn: 0 })
     const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 })
@@ -36,11 +40,89 @@ export default function CalendarGrid({ monthDate, mode, events, txs, profiles, o
     return map
   }, [txs])
 
+  // ----- 일정 칩 꾹 눌러서 드래그 이동 / 삭제 -----
+  const [dragEv, setDragEv] = useState(null)
+  const [overKey, setOverKey] = useState(null) // 'yyyy-MM-dd' | 'trash' | null
+  const ghostRef = useRef(null)
+  const press = useRef(null) // { ev, x, y, id, el, timer, dragging }
+  const recentDrag = useRef(false)
+
+  const chipDown = (e, ev) => {
+    if (e.button) return
+    const el = e.currentTarget
+    const p = { ev, x: e.clientX, y: e.clientY, id: e.pointerId, el, dragging: false }
+    p.timer = setTimeout(() => {
+      try { el.setPointerCapture(p.id) } catch { /* noop */ }
+      p.dragging = true
+      navigator.vibrate?.(10)
+      setDragEv(ev)
+      setOverKey(null)
+      if (ghostRef.current) positionGhost(p.x, p.y)
+    }, LONG_PRESS_MS)
+    press.current = p
+  }
+
+  const positionGhost = (x, y) => {
+    const g = ghostRef.current
+    if (!g) return
+    g.style.left = `${x}px`
+    g.style.top = `${y}px`
+  }
+
+  const chipMove = (e) => {
+    const p = press.current
+    if (!p) return
+    if (!p.dragging) {
+      // 누른 채 움직이면 스크롤 의도로 보고 길게 누르기 취소
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
+        clearTimeout(p.timer)
+        press.current = null
+      }
+      return
+    }
+    positionGhost(e.clientX, e.clientY)
+    const hit = document.elementFromPoint(e.clientX, e.clientY)
+    if (hit?.closest('.drag-trash')) setOverKey('trash')
+    else setOverKey(hit?.closest('[data-day]')?.dataset.day || null)
+  }
+
+  const chipUp = () => {
+    const p = press.current
+    press.current = null
+    if (!p) return
+    clearTimeout(p.timer)
+    if (!p.dragging) return
+    recentDrag.current = true
+    setTimeout(() => { recentDrag.current = false }, 350)
+    const target = overKey
+    setDragEv(null)
+    setOverKey(null)
+    if (target === 'trash') onDeleteEvent?.(p.ev)
+    else if (target && target !== format(new Date(p.ev.starts_at), 'yyyy-MM-dd')) onMoveEvent?.(p.ev, target)
+  }
+
+  // 드래그 중 브라우저 스크롤 차단 (길게 누르는 동안은 정지 상태라 안전하게 가로챌 수 있음)
+  useEffect(() => {
+    if (!dragEv) return
+    const prevent = (e) => e.preventDefault()
+    document.addEventListener('touchmove', prevent, { passive: false })
+    return () => document.removeEventListener('touchmove', prevent)
+  }, [dragEv])
+
+  // 드래그 직후 셀 클릭(DaySheet 열림) 무시
+  const onClickCapture = (e) => {
+    if (recentDrag.current) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
   // 좌우 스와이프로 월 이동
   const touch = useRef(null)
   const onTouchStart = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }
   const onTouchEnd = (e) => {
     if (!touch.current) return
+    if (dragEv || recentDrag.current) { touch.current = null; return }
     const dx = e.changedTouches[0].clientX - touch.current.x
     const dy = e.changedTouches[0].clientY - touch.current.y
     touch.current = null
@@ -56,6 +138,7 @@ export default function CalendarGrid({ monthDate, mode, events, txs, profiles, o
       className={`cal ${mode === 'money' ? 'money-mode' : ''}`}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
+      onClickCapture={onClickCapture}
     >
       <div className="cal-week-head" aria-hidden>
         {WEEK.map((w, i) => (
@@ -67,6 +150,7 @@ export default function CalendarGrid({ monthDate, mode, events, txs, profiles, o
           const key = format(day, 'yyyy-MM-dd')
           const dow = day.getDay()
           const holiday = HOLIDAYS_KR[key]
+          const annivLabel = anniv[key]
           const inMonth = isSameMonth(day, monthDate)
           const dayEvents = showEvents ? events.filter((ev) => eventOnDay(ev, day)) : []
           const sums = txByDate[key]
@@ -74,19 +158,26 @@ export default function CalendarGrid({ monthDate, mode, events, txs, profiles, o
             <button
               key={key}
               role="gridcell"
-              className={`cal-cell ${inMonth ? '' : 'dim'} ${isToday(day) ? 'today' : ''}`}
+              data-day={key}
+              className={`cal-cell ${inMonth ? '' : 'dim'} ${isToday(day) ? 'today' : ''} ${dragEv && overKey === key ? 'drop' : ''}`}
               onClick={() => onSelectDay(day)}
-              aria-label={format(day, 'M월 d일') + (holiday ? ` ${holiday}` : '')}
+              aria-label={format(day, 'M월 d일') + (holiday ? ` ${holiday}` : '') + (annivLabel ? ` ${annivLabel}` : '')}
             >
               <span className={`d num ${holiday || dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`}>
                 {day.getDate()}
               </span>
               {holiday && <span className="holi">{holiday}</span>}
+              {annivLabel && <span className="holi anniv">♥ {annivLabel}</span>}
               {dayEvents.slice(0, maxChips).map((ev) => (
                 <span
                   key={ev.id}
-                  className="chip"
+                  className={`chip ${dragEv?.id === ev.id ? 'lifting' : ''}`}
                   style={{ '--chip-c': colorOf(ev.created_by) }}
+                  onPointerDown={(e) => chipDown(e, ev)}
+                  onPointerMove={chipMove}
+                  onPointerUp={chipUp}
+                  onPointerCancel={chipUp}
+                  onContextMenu={(e) => e.preventDefault()}
                 >
                   {ev.title}
                 </span>
@@ -104,6 +195,22 @@ export default function CalendarGrid({ monthDate, mode, events, txs, profiles, o
           )
         })}
       </div>
+
+      {dragEv && (
+        <>
+          <div
+            ref={ghostRef}
+            className="drag-ghost chip"
+            style={{ '--chip-c': colorOf(dragEv.created_by) }}
+            aria-hidden
+          >
+            {dragEv.title}
+          </div>
+          <div className={`drag-trash ${overKey === 'trash' ? 'on' : ''}`} aria-hidden>
+            🗑 여기에 놓으면 삭제
+          </div>
+        </>
+      )}
     </div>
   )
 }

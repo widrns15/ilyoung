@@ -4,6 +4,18 @@ import { supabase } from '../lib/supabase'
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
+// 마지막 부팅 결과 캐시: 재방문 시 서버 응답을 기다리지 않고 바로 진입
+const CACHE_KEY = '1+0-couple-cache'
+
+function readCoupleCache(userId) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(CACHE_KEY))
+    return raw?.userId === userId ? raw : null
+  } catch {
+    return null
+  }
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = 확인 중
   const [profile, setProfile] = useState(null)
@@ -13,7 +25,10 @@ export function AppProvider({ children }) {
   const [toastMsg, setToastMsg] = useState(null)
   const toastTimer = useRef(null)
 
-  const [theme, setTheme] = useState(() => localStorage.getItem('duri-theme') || 'system')
+  const [theme, setTheme] = useState(
+    // 구버전 키(duri-theme)에서 한 번 이어받는다
+    () => localStorage.getItem('1+0-theme') || localStorage.getItem('duri-theme') || 'system'
+  )
 
   useEffect(() => {
     const root = document.documentElement
@@ -62,23 +77,29 @@ export function AppProvider({ children }) {
   )
 
   const loadCoupleState = useCallback(async (userId) => {
-    const { data: me, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    if (error) {
+    // 한 번의 왕복으로 나 + 파트너 + 커플 정보를 모두 가져온다 (RLS 가 두 사람 행만 보여줌)
+    const { data: rows, error } = await supabase.from('profiles').select('*, couple:couples(*)')
+    const meRow = rows?.find((r) => r.id === userId)
+    if (error || !meRow) {
       setProfile(null); setPartner(null); setCouple(null)
       return
     }
-    setProfile(me)
+    const { couple: myCouple, ...me } = meRow
+    let mate = null
     if (me.couple_id) {
-      const [{ data: members }, { data: coupleRow }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('couple_id', me.couple_id),
-        supabase.from('couples').select('*').eq('id', me.couple_id).single(),
-      ])
-      setPartner((members || []).find((m) => m.id !== userId) || null)
-      setCouple(coupleRow || null)
-    } else {
-      setPartner(null)
-      setCouple(null)
+      const mateRow = rows.find((r) => r.id !== userId && r.couple_id === me.couple_id)
+      if (mateRow) {
+        const { couple: _c, ...rest } = mateRow
+        mate = rest
+      }
     }
+    const coupleRow = me.couple_id ? myCouple || null : null
+    setProfile(me)
+    setPartner(mate)
+    setCouple(coupleRow)
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ userId, profile: me, partner: mate, couple: coupleRow }))
+    } catch { /* noop */ }
   }, [])
 
   // 세션 부트스트랩
@@ -87,13 +108,28 @@ export function AppProvider({ children }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return
       setSession(data.session)
-      if (data.session) await loadCoupleState(data.session.user.id)
+      if (data.session) {
+        const cached = readCoupleCache(data.session.user.id)
+        if (cached) {
+          // 캐시로 즉시 진입하고 서버 갱신은 백그라운드에서
+          setProfile(cached.profile)
+          setPartner(cached.partner)
+          setCouple(cached.couple)
+          setBooting(false)
+          loadCoupleState(data.session.user.id)
+          return
+        }
+        await loadCoupleState(data.session.user.id)
+      }
       setBooting(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
       setSession(s)
       if (s) await loadCoupleState(s.user.id)
-      else { setProfile(null); setPartner(null); setCouple(null) }
+      else {
+        setProfile(null); setPartner(null); setCouple(null)
+        try { localStorage.removeItem(CACHE_KEY) } catch { /* noop */ }
+      }
     })
     return () => { mounted = false; sub.subscription.unsubscribe() }
   }, [loadCoupleState])

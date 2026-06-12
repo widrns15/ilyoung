@@ -47,8 +47,14 @@ export default function CalendarGrid({
   const press = useRef(null) // { ev, x, y, id, el, timer, dragging }
   const recentDrag = useRef(false)
 
-  const chipDown = (e, ev) => {
-    if (e.button) return
+  // 칩을 직접 누르면 그 일정, 일정이 하나뿐인 날은 셀 아무 곳이나 눌러도 그 일정
+  const cellDown = (e, dayEvents) => {
+    if (e.button || !dayEvents.length) return
+    const chipEl = e.target.closest('.chip[data-ev]')
+    const ev = chipEl
+      ? dayEvents.find((x) => x.id === chipEl.dataset.ev)
+      : dayEvents.length === 1 ? dayEvents[0] : null
+    if (!ev) return
     const el = e.currentTarget
     const p = { ev, x: e.clientX, y: e.clientY, id: e.pointerId, el, dragging: false }
     p.timer = setTimeout(() => {
@@ -161,6 +167,11 @@ export default function CalendarGrid({
               data-day={key}
               className={`cal-cell ${inMonth ? '' : 'dim'} ${isToday(day) ? 'today' : ''} ${dragEv && overKey === key ? 'drop' : ''}`}
               onClick={() => onSelectDay(day)}
+              onPointerDown={(e) => cellDown(e, dayEvents)}
+              onPointerMove={chipMove}
+              onPointerUp={chipUp}
+              onPointerCancel={chipUp}
+              onContextMenu={(e) => e.preventDefault()}
               aria-label={format(day, 'M월 d일') + (holiday ? ` ${holiday}` : '') + (annivLabel ? ` ${annivLabel}` : '')}
             >
               <span className={`d num ${holiday || dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`}>
@@ -171,13 +182,9 @@ export default function CalendarGrid({
               {dayEvents.slice(0, maxChips).map((ev) => (
                 <span
                   key={ev.id}
+                  data-ev={ev.id}
                   className={`chip ${dragEv?.id === ev.id ? 'lifting' : ''}`}
                   style={{ '--chip-c': colorOf(ev.created_by) }}
-                  onPointerDown={(e) => chipDown(e, ev)}
-                  onPointerMove={chipMove}
-                  onPointerUp={chipUp}
-                  onPointerCancel={chipUp}
-                  onContextMenu={(e) => e.preventDefault()}
                 >
                   {ev.title}
                 </span>

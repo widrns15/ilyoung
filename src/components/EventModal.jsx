@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
 import { categoryEmoji, won } from '../lib/meta'
+import Sheet from './Sheet'
 
 export default function EventModal({ initial, defaultDay, txs, onClose, onSaved }) {
   const { profile, guard, toast } = useApp()
@@ -69,10 +70,7 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
   }
 
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-label={editing ? '일정 수정' : '일정 추가'}>
-        <div className="sheet-handle" />
+    <Sheet onClose={onClose} label={editing ? '일정 수정' : '일정 추가'}>
         <div className="sheet-head">
           <span className="sheet-title">{editing ? '일정 수정' : '새 일정'}</span>
         </div>
@@ -147,7 +145,6 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
           <button className="btn" disabled={busy}>{editing ? '저장' : '추가하기'}</button>
           {editing && <button type="button" className="btn danger" onClick={remove}>일정 삭제</button>}
         </form>
-      </div>
-    </>
+    </Sheet>
   )
 }

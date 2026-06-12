@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { addMonths, format, isSameMonth } from 'date-fns'
+import { useEffect, useMemo, useState } from 'react'
+import { addDays, addMonths, differenceInCalendarDays, format, isSameMonth } from 'date-fns'
+import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
 import { useCoupleData } from '../state/useCoupleData'
 import CalendarGrid from '../components/CalendarGrid'
@@ -9,6 +10,8 @@ import TxModal from '../components/TxModal'
 import StatsView from './StatsView'
 import SettingsSheet from './SettingsSheet'
 import { won } from '../lib/meta'
+import { runRecurringRules } from '../lib/recurrence'
+import { anniversaryMarks, dday } from '../lib/anniversary'
 
 const TABS = [
   { id: 'home', label: '홈', icon: '⊞' },
@@ -18,10 +21,15 @@ const TABS = [
 ]
 
 export default function Shell() {
-  const { profile, partner } = useApp()
+  const { profile, partner, couple, guard, toast } = useApp()
   const [tab, setTab] = useState('home')
   const [monthDate, setMonthDate] = useState(() => new Date())
-  const { events, txs, reload } = useCoupleData(profile.couple_id, monthDate)
+  const { events, txs, reload, range } = useCoupleData(profile.couple_id, monthDate)
+
+  // 앱이 열릴 때 도래한 반복 거래를 생성 (중복은 DB unique 인덱스가 차단)
+  useEffect(() => {
+    runRecurringRules(profile.couple_id).then((n) => { if (n) reload() })
+  }, [profile.couple_id]) // eslint-disable-line
 
   const [selectedDay, setSelectedDay] = useState(null)
   const [eventModal, setEventModal] = useState(null) // { initial?, day }
@@ -37,8 +45,44 @@ export default function Shell() {
   const monthExpense = monthTxs.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0)
   const monthIncome = monthTxs.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0)
 
+  const budget = couple?.monthly_budget || 0
+  const overBudget = budget > 0 && monthExpense > budget
+
+  const annivMarks = useMemo(
+    () => (couple?.anniversary ? anniversaryMarks(couple.anniversary, range.start, range.end) : {}),
+    [couple?.anniversary, range]
+  )
+
   const moveMonth = (d) => setMonthDate((m) => addMonths(m, d))
   const goToday = () => setMonthDate(new Date())
+
+  // 일정 칩 드래그 드롭: 시작·종료를 같은 간격으로 이동 (시각은 유지)
+  const moveEvent = async (ev, dayKey) => {
+    const start = new Date(ev.starts_at)
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+    const delta = differenceInCalendarDays(new Date(dayKey + 'T00:00'), startDay)
+    if (!delta) return
+    const { ok } = await guard(async () => {
+      const { error } = await supabase.from('events').update({
+        starts_at: addDays(start, delta).toISOString(),
+        ends_at: addDays(new Date(ev.ends_at), delta).toISOString(),
+      }).eq('id', ev.id)
+      if (error) throw error
+    })
+    if (ok) {
+      toast(`'${ev.title}'을(를) ${format(new Date(dayKey + 'T00:00'), 'M월 d일')}로 옮겼어요.`)
+      reload()
+    }
+  }
+
+  const deleteEvent = async (ev) => {
+    if (!confirm(`'${ev.title}' 일정을 삭제할까요? 연결된 가계부 내역은 남아요.`)) return
+    const { ok } = await guard(async () => {
+      const { error } = await supabase.from('events').delete().eq('id', ev.id)
+      if (error) throw error
+    })
+    if (ok) { toast('일정을 삭제했어요.'); reload() }
+  }
 
   // 일정 탭에서 + 누르면 일정, 그 외엔 가계부 입력이 기본
   const onFab = () => {
@@ -63,6 +107,9 @@ export default function Shell() {
         {!isSameMonth(monthDate, new Date()) && (
           <button className="today-btn" onClick={goToday}>오늘</button>
         )}
+        {couple?.anniversary && (
+          <span className="dday num" title={`${couple.anniversary}부터`}>D+{dday(couple.anniversary)}</span>
+        )}
         <button
           className="icon-btn" onClick={() => setShowSettings(true)} aria-label="설정"
           style={{ width: 'auto', padding: '0 2px' }}
@@ -84,14 +131,35 @@ export default function Shell() {
                 <span><span className="lbl">수입</span><span className="val income">{won(monthIncome)}원</span></span>
               </div>
             )}
+            {tab !== 'events' && budget > 0 && (
+              <div className="budget">
+                <div className="budget-head">
+                  <span>이번 달 예산 <b className="num">{won(budget)}원</b></span>
+                  <span className={overBudget ? 'over' : ''}>
+                    {overBudget
+                      ? <><b className="num">{won(monthExpense - budget)}원</b> 초과</>
+                      : <><b className="num">{won(budget - monthExpense)}원</b> 남음</>}
+                  </span>
+                </div>
+                <div className="budget-track" role="progressbar" aria-valuenow={Math.min(100, Math.round((monthExpense / budget) * 100))} aria-valuemin={0} aria-valuemax={100}>
+                  <span
+                    className={`budget-fill ${overBudget ? 'over' : ''}`}
+                    style={{ width: `${Math.min(100, (monthExpense / budget) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <CalendarGrid
               monthDate={monthDate}
               mode={calendarMode}
               events={events}
               txs={txs}
+              anniv={annivMarks}
               profiles={profiles}
               onSelectDay={setSelectedDay}
               onSwipe={moveMonth}
+              onMoveEvent={moveEvent}
+              onDeleteEvent={deleteEvent}
             />
           </>
         )}

@@ -1,6 +1,7 @@
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { categoryEmoji, won } from '../lib/meta'
+import Sheet from './Sheet'
 
 export default function DaySheet({ day, events, txs, profiles, onClose, onAddEvent, onAddTx, onEditEvent, onEditTx }) {
   const key = format(day, 'yyyy-MM-dd')
@@ -17,10 +18,7 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
   const colorOf = (id) => profiles.find((p) => p.id === id)?.color || '#9aa1ab'
 
   return (
-    <>
-      <div className="sheet-backdrop" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-label={format(day, 'M월 d일')}>
-        <div className="sheet-handle" />
+    <Sheet onClose={onClose} label={format(day, 'M월 d일')}>
         <div className="sheet-head">
           <span className="sheet-title">{format(day, 'M월 d일 EEEE', { locale: ko })}</span>
           <span className="month-summary" style={{ padding: 0 }}>
@@ -56,7 +54,7 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
               <span className="grow">
                 <span className="t1">{t.memo || t.category}</span>
                 <span className="t2">
-                  {t.category} · {nameOf(t.created_by)}
+                  {t.recurring_rule_id && '🔁 '}{t.category} · {nameOf(t.created_by)}
                   <span className="who" style={{ background: colorOf(t.created_by), display: 'inline-block', marginLeft: 6, verticalAlign: 'middle' }} />
                 </span>
               </span>
@@ -71,7 +69,6 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
           <button className="btn ghost" onClick={() => onAddEvent(day)}>+ 일정</button>
           <button className="btn" onClick={() => onAddTx(day)}>+ 지출·수입</button>
         </div>
-      </div>
-    </>
+    </Sheet>
   )
 }

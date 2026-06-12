@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, addMonths, differenceInCalendarDays, format, isSameMonth } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
@@ -10,7 +10,7 @@ import TxModal from '../components/TxModal'
 import StatsView from './StatsView'
 import SettingsSheet from './SettingsSheet'
 import { won } from '../lib/meta'
-import { runRecurringRules } from '../lib/recurrence'
+import { runRecurringRules, upcomingPreviews, virtualEventsInRange } from '../lib/recurrence'
 import { anniversaryMarks, dday } from '../lib/anniversary'
 
 const TABS = [
@@ -30,6 +30,25 @@ export default function Shell() {
   useEffect(() => {
     runRecurringRules(profile.couple_id).then((n) => { if (n) reload() })
   }, [profile.couple_id]) // eslint-disable-line
+
+  // 활성 반복 규칙: 거래는 예정 미리보기, 일정은 가상 일정으로 캘린더에 표시
+  const [rules, setRules] = useState([])
+  const [eventRules, setEventRules] = useState([])
+  const fetchRules = useCallback(async () => {
+    const [tx, ev] = await Promise.all([
+      supabase.from('recurring_rules').select('*')
+        .eq('couple_id', profile.couple_id).eq('active', true),
+      supabase.from('recurring_events').select('*')
+        .eq('couple_id', profile.couple_id).eq('active', true),
+    ])
+    setRules(tx.data || [])
+    setEventRules(ev.data || [])
+  }, [profile.couple_id])
+  useEffect(() => {
+    fetchRules()
+    window.addEventListener('focus', fetchRules)
+    return () => window.removeEventListener('focus', fetchRules)
+  }, [fetchRules])
 
   const [selectedDay, setSelectedDay] = useState(null)
   const [eventModal, setEventModal] = useState(null) // { initial?, day }
@@ -51,6 +70,17 @@ export default function Shell() {
   const annivMarks = useMemo(
     () => (couple?.anniversary ? anniversaryMarks(couple.anniversary, range.start, range.end) : {}),
     [couple?.anniversary, range]
+  )
+
+  const previewMap = useMemo(
+    () => upcomingPreviews(rules, range.start, range.end),
+    [rules, range]
+  )
+
+  // 실제 일정 + 반복 규칙에서 펼친 가상 일정 (표시 전용)
+  const displayEvents = useMemo(
+    () => [...events, ...virtualEventsInRange(eventRules, range.start, range.end)],
+    [events, eventRules, range]
   )
 
   const moveMonth = (d) => setMonthDate((m) => addMonths(m, d))
@@ -152,9 +182,10 @@ export default function Shell() {
             <CalendarGrid
               monthDate={monthDate}
               mode={calendarMode}
-              events={events}
+              events={displayEvents}
               txs={txs}
               anniv={annivMarks}
+              previews={previewMap}
               profiles={profiles}
               onSelectDay={setSelectedDay}
               onSwipe={moveMonth}
@@ -182,13 +213,16 @@ export default function Shell() {
       {selectedDay && !eventModal && !txModal && (
         <DaySheet
           day={selectedDay}
-          events={events}
+          events={displayEvents}
           txs={txs}
           profiles={profiles}
           onClose={() => setSelectedDay(null)}
           onAddEvent={(day) => setEventModal({ day })}
           onAddTx={(day) => setTxModal({ day })}
-          onEditEvent={(ev) => setEventModal({ initial: ev, day: selectedDay })}
+          onEditEvent={(ev) => {
+            if (ev.virtual) { toast('반복 일정은 설정 > 반복 일정에서 수정할 수 있어요.'); return }
+            setEventModal({ initial: ev, day: selectedDay })
+          }}
           onEditTx={(t) => setTxModal({ initial: t, day: selectedDay })}
         />
       )}
@@ -210,7 +244,9 @@ export default function Shell() {
           onSaved={reload}
         />
       )}
-      {showSettings && <SettingsSheet onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <SettingsSheet onClose={() => { setShowSettings(false); fetchRules() }} />
+      )}
     </div>
   )
 }

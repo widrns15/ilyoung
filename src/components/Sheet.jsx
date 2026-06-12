@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 
+// 열려 있는 시트 수 — 시트 위에 시트가 또 열리면 뒤 배경을 더 어둡게
+let openCount = 0
+
 // 공용 바텀 시트: 딤 탭 또는 아래로 쓸어내려서 닫기
 export default function Sheet({ onClose, label, children }) {
   const ref = useRef(null)
+  const depth = useRef(openCount).current
+  useEffect(() => {
+    openCount++
+    return () => { openCount-- }
+  }, [])
   const drag = useRef(null) // { y, t, id, active }
   const [dy, setDy] = useState(0)
   const [settling, setSettling] = useState(false)
@@ -56,20 +64,26 @@ export default function Sheet({ onClose, label, children }) {
   const dragging = drag.current?.active || dy > 0
   return (
     <>
-      <div className="sheet-backdrop" onClick={onClose} />
+      {/* 중첩 시트는 z-index를 올려 딤이 뒤 시트까지 덮게 한다 */}
+      <div
+        className={`sheet-backdrop ${depth > 0 ? 'deep' : ''}`}
+        style={depth > 0 ? { zIndex: 40 + depth * 2 } : undefined}
+        onClick={onClose}
+      />
       <div
         ref={ref}
         className="sheet"
         role="dialog"
         aria-label={label}
-        style={
-          dragging || settling
+        style={{
+          ...(depth > 0 ? { zIndex: 41 + depth * 2 } : null),
+          ...(dragging || settling
             ? {
                 transform: `translate(-50%, ${dy}px)`,
                 transition: settling ? 'transform 0.2s ease' : 'none',
               }
-            : undefined
-        }
+            : null),
+        }}
         onTransitionEnd={() => setSettling(false)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

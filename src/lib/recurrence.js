@@ -24,6 +24,61 @@ export function dueDates(rule, today = new Date()) {
   return out
 }
 
+// 아직 생성되지 않은 미래 도래일 미리보기: 'yyyy-MM-dd' -> { expense, income }
+// 오늘까지는 runRecurringRules 가 실제 내역을 만들므로 내일부터만 계산한다.
+export function upcomingPreviews(rules, rangeStart, rangeEnd, today = new Date()) {
+  const map = {}
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  const from = tomorrow > rangeStart ? tomorrow : rangeStart
+  if (from > rangeEnd) return map
+  for (const r of rules) {
+    const start = new Date(r.starts_on + 'T00:00')
+    let cursor = new Date(from.getFullYear(), from.getMonth(), 1)
+    const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1)
+    while (cursor <= endMonth) {
+      const day = Math.min(r.day_of_month, lastDayOfMonth(cursor).getDate())
+      const d = new Date(cursor.getFullYear(), cursor.getMonth(), day)
+      if (d >= from && d <= rangeEnd && d >= start) {
+        const k = format(d, 'yyyy-MM-dd')
+        if (!map[k]) map[k] = { expense: 0, income: 0 }
+        map[k][r.type] += r.amount
+      }
+      cursor = addMonths(cursor, 1)
+    }
+  }
+  return map
+}
+
+// 반복 일정 규칙을 보이는 범위의 가상 일정으로 펼친다.
+// DB 에 행을 만들지 않고 공휴일처럼 계산해서 표시만 한다 (과거·미래 모두 보임).
+export function virtualEventsInRange(rules, rangeStart, rangeEnd) {
+  const out = []
+  for (const r of rules) {
+    let cursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1)
+    const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1)
+    while (cursor <= endMonth) {
+      if (r.freq === 'monthly' || cursor.getMonth() === r.month - 1) {
+        const day = Math.min(r.day, lastDayOfMonth(cursor).getDate())
+        const d = new Date(cursor.getFullYear(), cursor.getMonth(), day)
+        if (d >= rangeStart && d <= rangeEnd) {
+          out.push({
+            id: `rec-${r.id}-${format(d, 'yyyyMMdd')}`,
+            virtual: true,
+            title: r.title,
+            memo: '',
+            all_day: true,
+            starts_at: d.toISOString(),
+            ends_at: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString(),
+            created_by: r.created_by,
+          })
+        }
+      }
+      cursor = addMonths(cursor, 1)
+    }
+  }
+  return out
+}
+
 // 앱이 열릴 때 호출: 도래한 규칙으로 거래를 만들어 넣는다.
 // 둘이 동시에 열어도 (recurring_rule_id, date) unique 인덱스가 중복을 막는다.
 export async function runRecurringRules(coupleId) {

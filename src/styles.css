@@ -136,7 +136,7 @@ button:focus-visible {
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
-  margin-left: 4px;
+  margin-left: 10px;
 }
 .icon-btn {
   width: 36px;
@@ -211,7 +211,7 @@ button:focus-visible {
   white-space: nowrap;
 }
 .budget {
-  padding: 0 6px 10px;
+  padding: 10px 6px 20px;
 }
 .budget-head {
   display: flex;
@@ -224,6 +224,7 @@ button:focus-visible {
 .budget-head b {
   color: var(--ink);
   font-weight: 800;
+  margin-left: 2px;
 }
 .budget-head .over,
 .budget-head .over b {
@@ -354,6 +355,10 @@ button:focus-visible {
 .chip.lifting {
   opacity: 0.3;
 }
+/* 아직 도래하지 않은 반복 일정 예정 금액 */
+.amt.plan {
+  opacity: 0.48;
+}
 .cal-cell.drop {
   background: color-mix(in srgb, var(--sat) 14%, var(--surface));
 }
@@ -447,6 +452,9 @@ button:focus-visible {
 .row .grow {
   flex: 1;
   min-width: 0;
+  display: flex;
+  justify-content: start;
+  align-items: center;
 }
 .row .t1 {
   font-size: 15px;
@@ -459,6 +467,7 @@ button:focus-visible {
   font-size: 12px;
   color: var(--muted);
   margin-top: 1px;
+  margin-left: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -486,6 +495,11 @@ button:focus-visible {
   z-index: 40;
   background: var(--overlay);
   animation: fadeIn 0.18s ease;
+}
+/* 시트 위에 또 시트가 열릴 때: 뒤 시트가 묻히도록 더 어둡게 */
+.sheet-backdrop.deep {
+  background: rgba(8, 10, 13, 0.66);
+  backdrop-filter: blur(3px);
 }
 .sheet {
   position: fixed;

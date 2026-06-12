@@ -57,6 +57,15 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  /* 길게 누를 때 iOS 텍스트 선택/돋보기가 앱 제스처를 가로채지 않도록 */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 button,
 input,

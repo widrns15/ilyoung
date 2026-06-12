@@ -191,7 +191,7 @@ export default function SettingsSheet({ onClose }) {
             />
           </div>
           <div className="settings-row">
-            <span className="k">반복 거래</span>
+            <span className="k">반복 일정</span>
             <button
               className="v"
               onClick={() => setShowRecurring(true)}

@@ -38,9 +38,9 @@ export default function RecurringSheet({ onClose }) {
   }
 
   return (
-    <Sheet onClose={onClose} label="반복 거래">
+    <Sheet onClose={onClose} label="반복 일정">
         <div className="sheet-head">
-          <span className="sheet-title">반복 거래</span>
+          <span className="sheet-title">반복 일정</span>
           {!editing && (
             <button className="today-btn" onClick={() => setEditing({})}>+ 새 규칙</button>
           )}
@@ -128,7 +128,7 @@ function RuleForm({ initial, onCancel, onSaved }) {
       }
     })
     setBusy(false)
-    if (ok) { toast(editing ? '규칙을 수정했어요.' : '반복 거래를 등록했어요.'); onSaved() }
+    if (ok) { toast(editing ? '규칙을 수정했어요.' : '반복 일정을 등록했어요.'); onSaved() }
   }
 
   const remove = async () => {

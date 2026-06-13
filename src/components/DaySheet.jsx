@@ -29,7 +29,11 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
 
         <h4>일정 {dayEvents.length > 0 && `${dayEvents.length}`}</h4>
         <div className="card">
-          {dayEvents.length === 0 && <div className="empty">이 날의 일정이 없어요</div>}
+          {dayEvents.length === 0 && (
+            <button className="row empty-add" onClick={() => onAddEvent(day)}>
+              <span className="grow empty-add-t">＋ 일정을 추가하려면 누르세요</span>
+            </button>
+          )}
           {dayEvents.map((ev) => (
             <button key={ev.id} className="row" onClick={() => onEditEvent(ev)}>
               <span className="who" style={{ background: colorOf(ev.created_by) }} />
@@ -44,11 +48,20 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
               <span className="t2">›</span>
             </button>
           ))}
+          {dayEvents.length > 0 && (
+            <button className="row add-row" onClick={() => onAddEvent(day)}>
+              <span className="grow add-row-t">＋ 일정 추가</span>
+            </button>
+          )}
         </div>
 
         <h4>가계부 {dayTxs.length > 0 && `${dayTxs.length}`}</h4>
         <div className="card">
-          {dayTxs.length === 0 && <div className="empty">이 날의 내역이 없어요</div>}
+          {dayTxs.length === 0 && (
+            <button className="row empty-add" onClick={() => onAddTx(day)}>
+              <span className="grow empty-add-t">＋ 지출·수입을 추가하려면 누르세요</span>
+            </button>
+          )}
           {dayTxs.map((t) => (
             <button key={t.id} className="row" onClick={() => onEditTx(t)}>
               <span className="emoji">{categoryEmoji(t.type, t.category)}</span>
@@ -64,6 +77,11 @@ export default function DaySheet({ day, events, txs, profiles, onClose, onAddEve
               </span>
             </button>
           ))}
+          {dayTxs.length > 0 && (
+            <button className="row add-row" onClick={() => onAddTx(day)}>
+              <span className="grow add-row-t">＋ 지출·수입 추가</span>
+            </button>
+          )}
         </div>
 
         <div className="form-row" style={{ marginTop: 16 }}>

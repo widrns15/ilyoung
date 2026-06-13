@@ -18,6 +18,37 @@ function eventOnDay(ev, day) {
   return s < d1 && e >= d0
 }
 
+// 한 주(7칸) 안에서 일정을 lane(가로 줄)에 배치 — 다일 일정이 같은 lane을 차지해
+// 칸마다 같은 세로 위치에 놓이도록 한다. 겹치지 않으면 같은 lane을 재사용.
+function buildWeekLayout(week, events) {
+  const segs = []
+  for (const ev of events) {
+    let start = -1
+    let end = -1
+    for (let i = 0; i < 7; i++) {
+      if (eventOnDay(ev, week[i])) {
+        if (start < 0) start = i
+        end = i
+      }
+    }
+    if (start < 0) continue
+    segs.push({ ev, start, end, lane: 0 })
+  }
+  segs.sort((a, b) =>
+    a.start - b.start ||
+    (b.end - b.start) - (a.end - a.start) ||
+    String(a.ev.starts_at).localeCompare(String(b.ev.starts_at))
+  )
+  const laneEnd = []
+  for (const seg of segs) {
+    let lane = 0
+    while (lane < laneEnd.length && laneEnd[lane] >= seg.start) lane++
+    laneEnd[lane] = seg.end
+    seg.lane = lane
+  }
+  return segs
+}
+
 export default function CalendarGrid({
   monthDate, mode, events, txs, anniv = {}, previews = {}, profiles,
   onSelectDay, onSwipe, onMoveEvent, onDeleteEvent,
@@ -27,6 +58,18 @@ export default function CalendarGrid({
     const end = endOfWeek(endOfMonth(monthDate), { weekStartsOn: 0 })
     return eachDayOfInterval({ start, end })
   }, [monthDate])
+
+  const weeks = useMemo(() => {
+    const out = []
+    for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7))
+    return out
+  }, [days])
+
+  const showEvents = mode !== 'money'
+  const layouts = useMemo(
+    () => (showEvents ? weeks.map((w) => buildWeekLayout(w, events)) : weeks.map(() => [])),
+    [weeks, events, showEvents]
+  )
 
   const colorOf = (id) => profiles.find((p) => p.id === id)?.color || '#9aa1ab'
 
@@ -136,9 +179,8 @@ export default function CalendarGrid({
     if (Math.abs(dx) > 64 && Math.abs(dx) > Math.abs(dy) * 1.6) onSwipe?.(dx < 0 ? 1 : -1)
   }
 
-  const showEvents = mode !== 'money'
   const showMoney = mode !== 'events'
-  const maxChips = mode === 'events' ? 3 : 2
+  const maxLanes = mode === 'events' ? 3 : 2
 
   return (
     <div
@@ -153,58 +195,83 @@ export default function CalendarGrid({
         ))}
       </div>
       <div className="cal-grid" role="grid">
-        {days.map((day) => {
-          const key = format(day, 'yyyy-MM-dd')
-          const dow = day.getDay()
-          const holiday = HOLIDAYS_KR[key]
-          const annivLabel = anniv[key]
-          const inMonth = isSameMonth(day, monthDate)
-          const dayEvents = showEvents ? events.filter((ev) => eventOnDay(ev, day)) : []
-          const sums = txByDate[key]
-          const plan = previews[key]
-          return (
-            <button
-              key={key}
-              role="gridcell"
-              data-day={key}
-              className={`cal-cell ${inMonth ? '' : 'dim'} ${isToday(day) ? 'today' : ''} ${dragEv && overKey === key ? 'drop' : ''}`}
-              onClick={() => onSelectDay(day)}
-              onPointerDown={(e) => cellDown(e, dayEvents)}
-              onPointerMove={chipMove}
-              onPointerUp={chipUp}
-              onPointerCancel={chipUp}
-              onContextMenu={(e) => e.preventDefault()}
-              aria-label={format(day, 'M월 d일') + (holiday ? ` ${holiday}` : '') + (annivLabel ? ` ${annivLabel}` : '')}
-            >
-              <span className={`d num ${holiday || dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`}>
-                {day.getDate()}
-              </span>
-              {holiday && <span className="holi">{holiday}</span>}
-              {annivLabel && <span className="holi anniv">♥ {annivLabel}</span>}
-              {dayEvents.slice(0, maxChips).map((ev) => (
-                <span
-                  key={ev.id}
-                  data-ev={ev.id}
-                  className={`chip ${dragEv?.id === ev.id ? 'lifting' : ''}`}
-                  style={{ '--chip-c': colorOf(ev.created_by) }}
-                >
-                  {ev.title}
+        {weeks.map((week, wi) =>
+          week.map((day, c) => {
+            const key = format(day, 'yyyy-MM-dd')
+            const dow = day.getDay()
+            const holiday = HOLIDAYS_KR[key]
+            const annivLabel = anniv[key]
+            const inMonth = isSameMonth(day, monthDate)
+            const daySegs = layouts[wi].filter((s) => s.start <= c && c <= s.end)
+            const visible = daySegs.filter((s) => s.lane < maxLanes)
+            const hidden = daySegs.length - visible.length
+            const maxLane = visible.reduce((m, s) => Math.max(m, s.lane), -1)
+            const dayEvents = daySegs.map((s) => s.ev)
+            const sums = txByDate[key]
+            const plan = previews[key]
+            return (
+              <button
+                key={key}
+                role="gridcell"
+                data-day={key}
+                className={`cal-cell ${inMonth ? '' : 'dim'} ${isToday(day) ? 'today' : ''} ${dragEv && overKey === key ? 'drop' : ''}`}
+                onClick={() => onSelectDay(day)}
+                onPointerDown={(e) => cellDown(e, dayEvents)}
+                onPointerMove={chipMove}
+                onPointerUp={chipUp}
+                onPointerCancel={chipUp}
+                onContextMenu={(e) => e.preventDefault()}
+                aria-label={format(day, 'M월 d일') + (holiday ? ` ${holiday}` : '') + (annivLabel ? ` ${annivLabel}` : '')}
+              >
+                <span className="cell-head">
+                  <span className={`d num ${holiday || dow === 0 ? 'sun' : dow === 6 ? 'sat' : ''}`}>
+                    {day.getDate()}
+                  </span>
+                  {holiday && <span className="holi">{holiday}</span>}
+                  {annivLabel && <span className="holi anniv">♥ {annivLabel}</span>}
                 </span>
-              ))}
-              {dayEvents.length > maxChips && (
-                <span className="chip more">+{dayEvents.length - maxChips}</span>
-              )}
-              {showMoney && (sums || plan) && (
-                <span className="amts">
-                  {sums?.expense > 0 && <span className="amt expense num">-{compactWon(sums.expense)}</span>}
-                  {sums?.income > 0 && <span className="amt income num">+{compactWon(sums.income)}</span>}
-                  {plan?.expense > 0 && <span className="amt expense plan num">🔁-{compactWon(plan.expense)}</span>}
-                  {plan?.income > 0 && <span className="amt income plan num">🔁+{compactWon(plan.income)}</span>}
-                </span>
-              )}
-            </button>
-          )
-        })}
+                {showEvents && maxLane >= 0 && (
+                  <span className="cell-lanes">
+                    {Array.from({ length: maxLane + 1 }).map((_, lane) => {
+                      const seg = visible.find((s) => s.lane === lane)
+                      if (!seg) return <span key={lane} className="chip-slot" aria-hidden />
+                      const ev = seg.ev
+                      const prev = eventOnDay(ev, addDays(day, -1))
+                      const next = eventOnDay(ev, addDays(day, 1))
+                      const cls = [
+                        'chip',
+                        dragEv?.id === ev.id ? 'lifting' : '',
+                        prev ? '' : 'rl',
+                        next ? '' : 'rr',
+                        prev && c !== 0 ? 'bl' : '',
+                        next && c !== 6 ? 'br' : '',
+                      ].filter(Boolean).join(' ')
+                      return (
+                        <span
+                          key={lane}
+                          data-ev={ev.id}
+                          className={cls}
+                          style={{ '--chip-c': colorOf(ev.created_by) }}
+                        >
+                          {!prev || c === 0 ? ev.title : ' '}
+                        </span>
+                      )
+                    })}
+                    {hidden > 0 && <span className="chip more">+{hidden}</span>}
+                  </span>
+                )}
+                {showMoney && (sums || plan) && (
+                  <span className="amts">
+                    {sums?.expense > 0 && <span className="amt expense num">-{compactWon(sums.expense)}</span>}
+                    {sums?.income > 0 && <span className="amt income num">+{compactWon(sums.income)}</span>}
+                    {plan?.expense > 0 && <span className="amt expense plan num">🔁-{compactWon(plan.expense)}</span>}
+                    {plan?.income > 0 && <span className="amt income plan num">🔁+{compactWon(plan.income)}</span>}
+                  </span>
+                )}
+              </button>
+            )
+          })
+        )}
       </div>
 
       {dragEv && (

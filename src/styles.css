@@ -276,6 +276,7 @@ button:focus-visible {
 .cal-cell {
   --cell-pad-x: 10px;
   min-height: 86px;
+  min-width: 0;
   padding: 4px var(--cell-pad-x) 6px;
   border-top: 1px solid var(--line);
   display: flex;
@@ -301,6 +302,7 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 .chip-slot {
   height: 15px;
@@ -369,6 +371,7 @@ button:focus-visible {
   height: 15px;
   line-height: 15px;
   padding: 0 4px;
+  min-width: 0;
 }
 .cell-lanes .chip:not(.rl) {
   border-left: none;
@@ -481,6 +484,24 @@ button:focus-visible {
 }
 .row + .row {
   border-top: 1px solid var(--line);
+}
+.row {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: pan-y;
+}
+.row.dragging {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  opacity: 0.95;
+}
+.row .grip {
+  color: var(--muted);
+  font-size: 16px;
+  cursor: grab;
+  line-height: 1;
 }
 .row .who {
   width: 8px;

@@ -27,6 +27,7 @@ create table public.events (
   starts_at timestamptz not null,
   ends_at timestamptz not null,
   all_day boolean not null default true,
+  sort_order integer not null default 0,
   created_by uuid references public.profiles (id) on delete set null,
   created_at timestamptz not null default now(),
   constraint events_range check (ends_at >= starts_at)

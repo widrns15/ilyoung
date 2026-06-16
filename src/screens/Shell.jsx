@@ -105,6 +105,17 @@ export default function Shell() {
     }
   }
 
+  // 같은 날 일정 순서 변경: 화면 순서대로 sort_order 부여
+  const reorderEvents = async (ordered) => {
+    const { ok } = await guard(async () => {
+      for (let i = 0; i < ordered.length; i++) {
+        const { error } = await supabase.from('events').update({ sort_order: i }).eq('id', ordered[i].id)
+        if (error) throw error
+      }
+    })
+    if (ok) reload()
+  }
+
   const deleteEvent = async (ev) => {
     if (!confirm(`'${ev.title}' 일정을 삭제할까요? 연결된 가계부 내역은 남아요.`)) return
     const { ok } = await guard(async () => {
@@ -219,6 +230,7 @@ export default function Shell() {
           onClose={() => setSelectedDay(null)}
           onAddEvent={(day) => setEventModal({ day })}
           onAddTx={(day) => setTxModal({ day })}
+          onReorderEvents={reorderEvents}
           onEditEvent={(ev) => {
             if (ev.virtual) { toast('반복 일정은 설정 > 반복 일정에서 수정할 수 있어요.'); return }
             setEventModal({ initial: ev, day: selectedDay })

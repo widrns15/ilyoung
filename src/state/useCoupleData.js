@@ -25,7 +25,9 @@ export function useCoupleData(coupleId, monthDate) {
         .eq('couple_id', coupleId)
         .lte('starts_at', endIso)
         .gte('ends_at', startIso)
-        .order('starts_at'),
+        .order('starts_at')
+        .order('sort_order')
+        .order('created_at'),
       supabase
         .from('transactions')
         .select('*')

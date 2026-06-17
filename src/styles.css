@@ -248,19 +248,17 @@ button:focus-visible {
 }
 
 /* ============ 캘린더 ============ */
+/* 박스 래퍼 없이 화면 전체 폭으로 — .view 좌우 패딩(12px)을 상쇄 */
 .cal {
-  background: var(--surface);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  margin: 0 -12px;
 }
 .cal-week-head {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--muted);
-  padding: 10px 0 6px;
+  padding: 8px 0 6px;
   text-align: center;
 }
 .cal-week-head .sun {
@@ -302,7 +300,6 @@ button:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
   overflow: hidden;
 }
 /* 오버레이 막대가 차지할 세로 공간 확보 (주별 --rows) */
@@ -310,10 +307,10 @@ button:focus-visible {
   height: calc(var(--rows, 0) * var(--row-h));
 }
 .cal-cell .d {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  width: 24px;
-  height: 24px;
+  width: 21px;
+  height: 21px;
   border-radius: 50%;
   display: grid;
   place-items: center;
@@ -343,6 +340,7 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  margin-top: -1px;
 }
 .cal-cell .holi.anniv {
   color: var(--love);
@@ -352,7 +350,7 @@ button:focus-visible {
 .cal-week-bars {
   position: absolute;
   /* 셀 border-top(1) + padding-top(6) + 헤더(--head-h) 만큼 내려 헤더와 겹치지 않게 */
-  top: calc(10px + var(--head-h, 34px));
+  top: calc(7px + var(--head-h, 34px));
   left: 0;
   right: 0;
   display: grid;
@@ -369,7 +367,7 @@ button:focus-visible {
   line-height: var(--lane-h, 20px);
   padding: 0 7px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--ink);
   background: color-mix(in srgb, var(--chip-c) 30%, var(--surface));
@@ -393,7 +391,7 @@ button:focus-visible {
 .cal-more {
   align-self: start;
   margin-left: 4px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: var(--muted);
   line-height: var(--lane-h, 20px);
@@ -442,7 +440,7 @@ button:focus-visible {
   gap: 1px;
 }
 .amt {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-align: right;
   line-height: 1.2;

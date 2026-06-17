@@ -379,6 +379,10 @@ button:focus-visible {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
+/* 다일 막대는 폭 여유가 있으니 양 끝 여백을 더 준다 (단일 칸은 글자 공간 확보 위해 좁게 유지) */
+.cal-bar.span {
+  margin: 0 8px;
+}
 .cal-bar.dim {
   opacity: 0.4;
 }
@@ -838,23 +842,6 @@ button:focus-visible {
 .tabbar button.on {
   color: var(--ink);
 }
-.fab {
-  position: fixed;
-  right: max(16px, calc(50% - 264px));
-  bottom: calc(var(--safe-bottom) + 72px);
-  z-index: 31;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: 26px;
-  font-weight: 400;
-  display: grid;
-  place-items: center;
-  box-shadow: var(--shadow);
-}
-
 /* ============ 통계 ============ */
 .stats-divider {
   border: none;

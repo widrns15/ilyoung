@@ -362,10 +362,10 @@ button:focus-visible {
 }
 .cal-bar {
   pointer-events: auto;
-  margin: 0 10px;
+  margin: 0 2px;
   height: var(--lane-h, 20px);
   line-height: var(--lane-h, 20px);
-  padding: 0 7px;
+  padding: 0 5px;
   border-radius: 6px;
   font-size: 10px;
   font-weight: 600;

@@ -272,7 +272,7 @@ export default function CalendarGrid({
                       <button
                         key={s.ev.id}
                         data-ev={s.ev.id}
-                        className={`cal-bar ${dragEv?.id === s.ev.id ? 'lifting' : ''} ${inMonth ? '' : 'dim'} ${s.ev.virtual ? 'virtual' : ''}`}
+                        className={`cal-bar ${s.end > s.start ? 'span' : ''} ${dragEv?.id === s.ev.id ? 'lifting' : ''} ${inMonth ? '' : 'dim'} ${s.ev.virtual ? 'virtual' : ''}`}
                         style={{
                           gridColumn: `${s.start + 1} / ${s.end + 2}`,
                           gridRow: s.lane + 1,

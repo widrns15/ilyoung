@@ -9,7 +9,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
 import { categoryEmoji, compactWon, won } from '../lib/meta';
-import EventHistorySheet from '../components/EventHistorySheet';
+import EventHistoryPage from '../components/EventHistoryPage';
 
 const TREND_MONTHS = 6;
 
@@ -319,7 +319,7 @@ export default function StatsView({ monthDate, txs, profiles }) {
       </div>
 
       {showHistory && (
-        <EventHistorySheet
+        <EventHistoryPage
           events={pastEvents}
           profiles={profiles}
           onClose={() => setShowHistory(false)}

@@ -125,13 +125,6 @@ export default function Shell() {
     if (ok) { toast('일정을 삭제했어요.'); reload() }
   }
 
-  // 일정 탭에서 + 누르면 일정, 그 외엔 가계부 입력이 기본
-  const onFab = () => {
-    const day = new Date()
-    if (tab === 'events') setEventModal({ day })
-    else setTxModal({ day })
-  }
-
   const calendarMode = tab === 'events' ? 'events' : tab === 'money' ? 'money' : 'all'
 
   return (
@@ -207,10 +200,6 @@ export default function Shell() {
         )}
         {tab === 'stats' && <StatsView monthDate={monthDate} txs={txs} profiles={profiles} />}
       </main>
-
-      {tab !== 'stats' && (
-        <button className="fab" onClick={onFab} aria-label="추가">+</button>
-      )}
 
       <nav className="tabbar">
         {TABS.map((t) => (

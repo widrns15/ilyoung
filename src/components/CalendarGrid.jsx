@@ -224,7 +224,7 @@ export default function CalendarGrid({
             return HOLIDAYS_KR[k] || anniv[k]
           })
           return (
-            <div className="cal-week" key={wi} style={{ '--rows': meta.rows, '--head-h': hasSpecial ? '36px' : '26px' }}>
+            <div className="cal-week" key={wi} style={{ '--rows': meta.rows, '--head-h': hasSpecial ? '32px' : '23px' }}>
               <div className="cal-week-cells">
                 {week.map((day) => {
                   const key = format(day, 'yyyy-MM-dd')

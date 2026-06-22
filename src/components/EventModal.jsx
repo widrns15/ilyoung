@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
 import { categoryEmoji, won } from '../lib/meta'
+import { notifyPartner } from '../lib/push'
 import Sheet from './Sheet'
 
 export default function EventModal({ initial, defaultDay, txs, onClose, onSaved }) {
@@ -57,7 +58,12 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
       }
     })
     setBusy(false)
-    if (ok) { toast(editing ? '일정을 수정했어요.' : '일정을 추가했어요.'); onSaved(); onClose() }
+    if (ok) {
+      if (!editing) {
+        notifyPartner({ title: `${profile.display_name}님이 일정을 추가했어요`, body: title.trim() })
+      }
+      toast(editing ? '일정을 수정했어요.' : '일정을 추가했어요.'); onSaved(); onClose()
+    }
   }
 
   const remove = async () => {

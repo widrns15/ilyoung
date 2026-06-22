@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
 import { PERSON_COLORS } from '../lib/meta';
 import { dday } from '../lib/anniversary';
+import {
+  disablePush,
+  enablePush,
+  isPushEnabled,
+  pushSupported,
+} from '../lib/push';
 import RecurringSheet from '../components/RecurringSheet';
 import Sheet from '../components/Sheet';
 
@@ -23,6 +29,32 @@ export default function SettingsSheet({ onClose }) {
     couple?.monthly_budget ? String(couple.monthly_budget) : '',
   );
   const [showRecurring, setShowRecurring] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    isPushEnabled().then(setPushOn);
+  }, []);
+
+  const togglePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushOn) {
+        await disablePush();
+        setPushOn(false);
+        toast('알림을 껐어요.');
+      } else {
+        await enablePush(profile);
+        setPushOn(true);
+        toast('알림을 켰어요.');
+      }
+    } catch (e) {
+      toast(e?.message || '알림 설정에 실패했어요.');
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   const updateCouple = async (patch, msg) => {
     const { ok } = await guard(async () => {
@@ -201,6 +233,33 @@ export default function SettingsSheet({ onClose }) {
             </button>
           </div>
         </div>
+
+        {pushSupported() && (
+          <>
+            <h4>알림</h4>
+            <div className="card">
+              <div className="settings-row">
+                <span className="k">푸시 알림</span>
+                <button
+                  type="button"
+                  className={`toggle ${pushOn ? 'on' : ''}`}
+                  onClick={togglePush}
+                  disabled={pushBusy}
+                  aria-pressed={pushOn}
+                  aria-label="푸시 알림"
+                />
+              </div>
+              <div className="settings-row">
+                <span
+                  className="k"
+                  style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}
+                >
+                  상대의 일정·가계부 추가, 일정 전날 알림을 받아요.
+                </span>
+              </div>
+            </div>
+          </>
+        )}
 
         <h4>화면</h4>
         <div className="card" style={{ padding: 12 }}>

@@ -32,6 +32,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
         navigateFallback: '/index.html',
+        // 자동 생성 SW 에 푸시 수신 핸들러를 끼워 넣는다
+        importScripts: ['push-sw.js'],
       },
     }),
   ],

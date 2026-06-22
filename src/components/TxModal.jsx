@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { supabase } from '../lib/supabase'
 import { useApp } from '../state/AppContext'
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, won } from '../lib/meta'
+import { notifyPartner } from '../lib/push'
 import Sheet from './Sheet'
 
 export default function TxModal({ initial, defaultDay, events, onClose, onSaved }) {
@@ -53,7 +54,16 @@ export default function TxModal({ initial, defaultDay, events, onClose, onSaved 
       }
     })
     setBusy(false)
-    if (ok) { toast(editing ? '내역을 수정했어요.' : '내역을 추가했어요.'); onSaved(); onClose() }
+    if (ok) {
+      if (!editing) {
+        const sign = type === 'expense' ? '-' : '+'
+        notifyPartner({
+          title: `${profile.display_name}님이 ${type === 'expense' ? '지출' : '수입'}을 기록했어요`,
+          body: `${category} ${sign}${won(amount)}원`,
+        })
+      }
+      toast(editing ? '내역을 수정했어요.' : '내역을 추가했어요.'); onSaved(); onClose()
+    }
   }
 
   const remove = async () => {

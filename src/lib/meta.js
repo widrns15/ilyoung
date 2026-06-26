@@ -1,23 +1,12 @@
 export const EXPENSE_CATEGORIES = [
-  { name: '식비', emoji: '🍚' },
-  { name: '카페', emoji: '☕' },
   { name: '데이트', emoji: '💐' },
-  { name: '교통', emoji: '🚇' },
-  { name: '쇼핑', emoji: '🛍️' },
-  { name: '문화', emoji: '🎬' },
   { name: '여행', emoji: '✈️' },
-  { name: '의료', emoji: '💊' },
-  { name: '주거/통신', emoji: '🏠' },
   { name: '경조사', emoji: '💌' },
   { name: '기타', emoji: '🧾' },
 ]
 
-export const INCOME_CATEGORIES = [
-  { name: '월급', emoji: '💼' },
-  { name: '용돈', emoji: '🪙' },
-  { name: '이자/배당', emoji: '🏦' },
-  { name: '기타', emoji: '🧾' },
-]
+// 수입은 분류를 두지 않는다 (category 컬럼은 '기타'로 저장)
+export const INCOME_CATEGORIES = []
 
 export const PERSON_COLORS = [
   '#F2685C', '#4D7CFE', '#18A36C', '#E8A23D',

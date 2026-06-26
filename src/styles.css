@@ -389,6 +389,10 @@ button:focus-visible {
 .cal-bar.lifting {
   opacity: 0.3;
 }
+/* 반복(가상) 일정 — 예정 거래 금액과 동일하게 희미하게 */
+.cal-bar.virtual {
+  opacity: 0.5;
+}
 .cal.dragging .cal-bar {
   pointer-events: none;
 }
@@ -403,7 +407,7 @@ button:focus-visible {
 
 /* 아직 도래하지 않은 반복 일정 예정 금액 */
 .amt.plan {
-  opacity: 0.48;
+  opacity: 0.5;
 }
 .cal-cell.drop {
   background: color-mix(in srgb, var(--sat) 14%, var(--surface));
@@ -444,7 +448,7 @@ button:focus-visible {
   gap: 1px;
 }
 .amt {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-align: right;
   line-height: 1.2;
@@ -456,12 +460,9 @@ button:focus-visible {
   color: var(--income);
 }
 
-/* 가계부 전용 모드: 금액 강조 */
+/* 가계부 전용 모드 */
 .cal.money-mode .cal-cell {
   min-height: 74px;
-}
-.cal.money-mode .amt {
-  font-size: 11px;
 }
 
 /* ============ 리스트 (일정/가계부 시트, 통계) ============ */
@@ -486,6 +487,9 @@ button:focus-visible {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
   touch-action: pan-y;
+}
+.row.planned {
+  opacity: 0.5;
 }
 .row.dragging {
   background: var(--surface-2);
@@ -763,6 +767,13 @@ button:focus-visible {
 }
 .form-row > * {
   flex: 1;
+  min-width: 0;
+}
+/* iOS Safari는 date/time 입력을 네이티브 고유폭으로 키워 옆 칸을 침범시킨다 → 외형을 꺼서 width:100% 를 지키게 */
+input[type='date'],
+input[type='time'] {
+  -webkit-appearance: none;
+  appearance: none;
 }
 .seg {
   display: flex;

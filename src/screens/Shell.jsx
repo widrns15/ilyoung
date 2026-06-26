@@ -220,10 +220,8 @@ export default function Shell() {
           onAddEvent={(day) => setEventModal({ day })}
           onAddTx={(day) => setTxModal({ day })}
           onReorderEvents={reorderEvents}
-          onEditEvent={(ev) => {
-            if (ev.virtual) { toast('반복 일정은 설정 > 반복 일정에서 수정할 수 있어요.'); return }
-            setEventModal({ initial: ev, day: selectedDay })
-          }}
+          rules={rules}
+          onEditEvent={(ev) => setEventModal({ initial: ev, day: selectedDay })}
           onEditTx={(t) => setTxModal({ initial: t, day: selectedDay })}
         />
       )}

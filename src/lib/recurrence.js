@@ -49,6 +49,34 @@ export function upcomingPreviews(rules, rangeStart, rangeEnd, today = new Date()
   return map
 }
 
+// 특정 날짜에 도래하는 '예정 거래'(아직 생성 안 된 미래 반복 거래)를 가상 거래로 만든다.
+// DaySheet 에서 흐린 행으로 보여주고, 눌러서 내용(읽기전용)을 확인하는 용도.
+export function previewTxForDay(rules, day, existingTxs = [], today = new Date()) {
+  const d0 = new Date(day.getFullYear(), day.getMonth(), day.getDate())
+  const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (d0 <= t0) return [] // 오늘까지는 실제 거래로 생성됨
+  const key = format(day, 'yyyy-MM-dd')
+  const out = []
+  for (const r of rules) {
+    const start = new Date(r.starts_on + 'T00:00')
+    const dueDay = Math.min(r.day_of_month, lastDayOfMonth(day).getDate())
+    if (dueDay !== day.getDate() || d0 < start) continue
+    if (existingTxs.some((t) => t.recurring_rule_id === r.id && t.date === key)) continue
+    out.push({
+      id: `rectx-${r.id}-${key}`,
+      virtual: true,
+      recurring_rule_id: r.id,
+      type: r.type,
+      amount: r.amount,
+      category: r.category,
+      memo: r.memo,
+      date: key,
+      created_by: r.created_by,
+    })
+  }
+  return out
+}
+
 // 반복 일정 규칙을 보이는 범위의 가상 일정으로 펼친다.
 // DB 에 행을 만들지 않고 공휴일처럼 계산해서 표시만 한다 (과거·미래 모두 보임).
 export function virtualEventsInRange(rules, rangeStart, rangeEnd) {

@@ -9,20 +9,14 @@ import Sheet from './Sheet'
 export default function EventModal({ initial, defaultDay, txs, onClose, onSaved }) {
   const { profile, guard, toast } = useApp()
   const editing = Boolean(initial)
+  const viewOnly = Boolean(initial?.virtual) // 반복 일정(가상) — 읽기 전용
   const [title, setTitle] = useState(initial?.title || '')
   const [memo, setMemo] = useState(initial?.memo || '')
-  const [allDay, setAllDay] = useState(initial ? initial.all_day : true)
   const [date, setDate] = useState(
     format(initial ? new Date(initial.starts_at) : defaultDay, 'yyyy-MM-dd')
   )
   const [endDate, setEndDate] = useState(
     format(initial ? new Date(initial.ends_at) : defaultDay, 'yyyy-MM-dd')
-  )
-  const [startTime, setStartTime] = useState(
-    initial && !initial.all_day ? format(new Date(initial.starts_at), 'HH:mm') : '10:00'
-  )
-  const [endTime, setEndTime] = useState(
-    initial && !initial.all_day ? format(new Date(initial.ends_at), 'HH:mm') : '11:00'
   )
   const [busy, setBusy] = useState(false)
 
@@ -33,8 +27,8 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
     e.preventDefault()
     if (!title.trim()) return
     setBusy(true)
-    const starts = allDay ? new Date(`${date}T00:00:00`) : new Date(`${date}T${startTime}`)
-    const ends = allDay ? new Date(`${endDate}T23:59:59`) : new Date(`${date}T${endTime}`)
+    const starts = new Date(`${date}T00:00:00`)
+    const ends = new Date(`${endDate}T23:59:59`)
     if (ends < starts) {
       toast('종료가 시작보다 빠를 수 없어요.')
       setBusy(false)
@@ -44,7 +38,7 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
       couple_id: profile.couple_id,
       title: title.trim(),
       memo: memo.trim(),
-      all_day: allDay,
+      all_day: true,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
     }
@@ -76,54 +70,31 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
   }
 
   return (
-    <Sheet onClose={onClose} label={editing ? '일정 수정' : '일정 추가'}>
+    <Sheet onClose={onClose} label={viewOnly ? '반복 일정' : editing ? '일정 수정' : '일정 추가'}>
         <div className="sheet-head">
-          <span className="sheet-title">{editing ? '일정 수정' : '새 일정'}</span>
+          <span className="sheet-title">{viewOnly ? '🔁 반복 일정' : editing ? '일정 수정' : '새 일정'}</span>
         </div>
         <form className="form" onSubmit={save}>
           <input
-            placeholder="무슨 일정인가요?" required autoFocus={!editing}
+            placeholder="무슨 일정인가요?" required autoFocus={!editing} disabled={viewOnly}
             value={title} onChange={(e) => setTitle(e.target.value)} maxLength={40}
           />
-          <div className="switch-row">
-            <span style={{ fontSize: 14, fontWeight: 600 }}>하루 종일</span>
-            <button type="button" className={`toggle ${allDay ? 'on' : ''}`} onClick={() => setAllDay(!allDay)} aria-pressed={allDay} />
-          </div>
-          {allDay ? (
-            <div className="form-row">
-              <div>
-                <label>시작</label>
-                <input type="date" required value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value) }} />
-              </div>
-              <div>
-                <label>종료</label>
-                <input type="date" required min={date} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-              </div>
+          <div className="form-row">
+            <div>
+              <label>시작</label>
+              <input type="date" required disabled={viewOnly} value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value) }} />
             </div>
-          ) : (
-            <>
-              <div>
-                <label>날짜</label>
-                <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="form-row">
-                <div>
-                  <label>시작</label>
-                  <input type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div>
-                  <label>종료</label>
-                  <input type="time" required value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-              </div>
-            </>
-          )}
+            <div>
+              <label>종료</label>
+              <input type="date" required min={date} disabled={viewOnly} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
           <textarea
-            rows={2} placeholder="메모 (선택)"
+            rows={2} placeholder="메모 (선택)" disabled={viewOnly}
             value={memo} onChange={(e) => setMemo(e.target.value)} maxLength={200}
           />
 
-          {editing && (
+          {editing && !viewOnly && (
             <>
               <h4 style={{ margin: '4px 2px 0' }}>
                 이 일정에 쓴 돈 {linked.length > 0 && `· 총 ${won(Math.max(linkedTotal, 0))}원`}
@@ -148,8 +119,16 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
             </>
           )}
 
-          <button className="btn" disabled={busy}>{editing ? '저장' : '추가하기'}</button>
-          {editing && <button type="button" className="btn danger" onClick={remove}>일정 삭제</button>}
+          {viewOnly ? (
+            <div className="empty" style={{ padding: '10px 0 2px' }}>
+              반복 일정이에요. 수정·삭제는 설정 &gt; 반복 일정에서 할 수 있어요.
+            </div>
+          ) : (
+            <>
+              <button className="btn" disabled={busy}>{editing ? '저장' : '추가하기'}</button>
+              {editing && <button type="button" className="btn danger" onClick={remove}>일정 삭제</button>}
+            </>
+          )}
         </form>
     </Sheet>
   )

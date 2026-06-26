@@ -185,9 +185,10 @@ function RuleForm({ initial, onCancel, onSaved }) {
 
   const switchKind = (k) => {
     setKind(k);
-    if (k !== 'event') {
-      const list = k === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-      if (!list.some((c) => c.name === category)) setCategory(list[0].name);
+    // 수입은 분류 없음 → '기타' 고정, 지출은 목록에 없으면 첫 분류로
+    if (k === 'income') setCategory('기타');
+    else if (k === 'expense' && !EXPENSE_CATEGORIES.some((c) => c.name === category)) {
+      setCategory(EXPENSE_CATEGORIES[0].name);
     }
   };
 
@@ -389,22 +390,24 @@ function RuleForm({ initial, onCancel, onSaved }) {
               aria-label="금액"
             />
           </div>
-          <div>
-            <label>분류</label>
-            <div className="cat-grid">
-              {cats.map((c) => (
-                <button
-                  key={c.name}
-                  type="button"
-                  className={category === c.name ? 'on' : ''}
-                  onClick={() => setCategory(c.name)}
-                >
-                  <span className="e">{c.emoji}</span>
-                  {c.name}
-                </button>
-              ))}
+          {kind === 'expense' && (
+            <div>
+              <label>분류</label>
+              <div className="cat-grid">
+                {cats.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    className={category === c.name ? 'on' : ''}
+                    onClick={() => setCategory(c.name)}
+                  >
+                    <span className="e">{c.emoji}</span>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
           <div>
             <label>매월 언제?</label>
             <select value={day} onChange={(e) => setDay(e.target.value)}>

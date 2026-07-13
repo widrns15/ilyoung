@@ -18,6 +18,10 @@ export function categoryEmoji(type, name) {
   return list.find((c) => c.name === name)?.emoji ?? '🧾'
 }
 
+// 터치 기기에선 시트가 열리자마자 키보드가 화면을 밀어올리므로 자동 포커스를 끈다
+export const canAutoFocus = () =>
+  window.matchMedia('(hover: hover) and (pointer: fine)').matches
+
 export function won(n) {
   return new Intl.NumberFormat('ko-KR').format(n)
 }

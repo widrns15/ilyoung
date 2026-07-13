@@ -248,7 +248,7 @@ export default function StatsView({ monthDate, txs, profiles }) {
         </div>
       </div>
 
-      <h4>누가 썼을까</h4>
+      {/* <h4>누가 썼을까</h4>
       <div className="card" style={{ marginBottom: 14 }}>
         {totalExpense === 0 ? (
           <div className="empty">이번 달 지출이 아직 없어요</div>
@@ -278,7 +278,7 @@ export default function StatsView({ monthDate, txs, profiles }) {
             </div>
           </>
         )}
-      </div>
+      </div> */}
 
       <h4>분류별 지출</h4>
       <div className="card" style={{ marginBottom: 14 }}>

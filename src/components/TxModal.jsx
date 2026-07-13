@@ -2,9 +2,17 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../state/AppContext';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, won } from '../lib/meta';
+import {
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  canAutoFocus,
+  won,
+} from '../lib/meta';
+import { LAST_DAY } from '../lib/recurrence';
 import { notifyPartner } from '../lib/push';
 import Sheet from './Sheet';
+
+const DAYS = Array.from({ length: 30 }, (_, i) => i + 1);
 
 export default function TxModal({
   initial,
@@ -26,6 +34,9 @@ export default function TxModal({
     initial?.date || format(defaultDay, 'yyyy-MM-dd'),
   );
   const [eventId, setEventId] = useState(initial?.event_id || '');
+  // 반복: 'none' | 'monthly' — 새 내역에서만 선택 가능 (거래 규칙은 매월만 지원)
+  const [repeat, setRepeat] = useState('none');
+  const [ruleDay, setRuleDay] = useState(defaultDay.getDate());
   const [busy, setBusy] = useState(false);
 
   const cats = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -57,6 +68,37 @@ export default function TxModal({
       return;
     }
     setBusy(true);
+
+    // 반복 거래: recurring_rules 규칙으로 저장 (다음 도래일부터 자동 생성)
+    if (!editing && repeat === 'monthly') {
+      const { ok } = await guard(async () => {
+        const { error } = await supabase.from('recurring_rules').insert({
+          couple_id: profile.couple_id,
+          type,
+          amount,
+          category,
+          memo: memo.trim(),
+          day_of_month: Number(ruleDay),
+          created_by: profile.id,
+        });
+        if (error) throw error;
+      });
+      setBusy(false);
+      if (ok) {
+        const when =
+          Number(ruleDay) === LAST_DAY ? '매월 말일' : `매월 ${ruleDay}일`;
+        const sign = type === 'expense' ? '-' : '+';
+        notifyPartner({
+          title: `${profile.display_name}님이 반복 거래를 추가했어요`,
+          body: `${when} · ${category} ${sign}${won(amount)}원`,
+        });
+        toast('반복 거래를 등록했어요.');
+        onSaved();
+        onClose();
+      }
+      return;
+    }
+
     const payload = {
       couple_id: profile.couple_id,
       type,
@@ -120,6 +162,19 @@ export default function TxModal({
         <span className="sheet-title">
           {viewOnly ? '🔁 반복 거래' : editing ? '내역 수정' : '새 내역'}
         </span>
+        {!editing && (
+          <span className="repeat-inline">
+            <span aria-hidden>🔁</span>
+            <select
+              value={repeat}
+              onChange={(e) => setRepeat(e.target.value)}
+              aria-label="반복"
+            >
+              <option value="none">안 함</option>
+              <option value="monthly">매월</option>
+            </select>
+          </span>
+        )}
       </div>
       <form className="form" onSubmit={save}>
         <div className="seg" role="tablist">
@@ -145,7 +200,7 @@ export default function TxModal({
             inputMode="numeric"
             placeholder="0"
             required
-            autoFocus={!editing}
+            autoFocus={!editing && canAutoFocus()}
             disabled={viewOnly}
             value={amount ? won(amount) : ''}
             onChange={(e) => setAmountStr(e.target.value)}
@@ -171,38 +226,60 @@ export default function TxModal({
             </div>
           </div>
         )}
-        <div className="form-row">
-          <div>
-            <label>날짜</label>
-            <input
-              type="date"
-              required
-              disabled={viewOnly}
-              value={date}
-              onChange={(e) => {
-                setDate(e.target.value);
-                setEventId('');
-              }}
-            />
+        {repeat === 'none' ? (
+          <div className="form-row">
+            <div>
+              <label>날짜</label>
+              <input
+                type="date"
+                required
+                disabled={viewOnly}
+                value={date}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  setEventId('');
+                }}
+              />
+            </div>
+            <div>
+              <label>일정 연결</label>
+              <select
+                value={eventId}
+                disabled={viewOnly}
+                onChange={(e) => setEventId(e.target.value)}
+              >
+                <option value="">연결 안 함</option>
+                {candidateEvents.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label>일정 연결</label>
-            <select
-              value={eventId}
-              disabled={viewOnly}
-              onChange={(e) => setEventId(e.target.value)}
-            >
-              <option value="">연결 안 함</option>
-              {candidateEvents.map((ev) => (
-                <option key={ev.id} value={ev.id}>
-                  {ev.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+        ) : (
+          <>
+            <div>
+              <label>매월 언제?</label>
+              <select
+                value={ruleDay}
+                onChange={(e) => setRuleDay(e.target.value)}
+              >
+                {DAYS.map((d) => (
+                  <option key={d} value={d}>
+                    매월 {d}일
+                  </option>
+                ))}
+                <option value={LAST_DAY}>매월 말일</option>
+              </select>
+            </div>
+            {Number(ruleDay) >= 29 && Number(ruleDay) !== LAST_DAY && (
+              <p className="hint">날짜가 없는 달엔 말일로 당겨져요.</p>
+            )}
+          </>
+        )}
         <input
-          placeholder="메모 (예: 성수동 파스타)"
+          placeholder="메모 (예: 방수 매트리스 1개)"
           value={memo}
           disabled={viewOnly}
           onChange={(e) => setMemo(e.target.value)}

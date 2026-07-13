@@ -231,7 +231,7 @@ export default function Shell() {
           defaultDay={eventModal.day}
           txs={txs}
           onClose={() => setEventModal(null)}
-          onSaved={reload}
+          onSaved={() => { reload(); fetchRules() }}
         />
       )}
       {txModal && (
@@ -240,7 +240,7 @@ export default function Shell() {
           defaultDay={txModal.day}
           events={events}
           onClose={() => setTxModal(null)}
-          onSaved={reload}
+          onSaved={() => { reload(); fetchRules() }}
         />
       )}
       {showSettings && (

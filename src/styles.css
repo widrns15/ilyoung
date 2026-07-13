@@ -771,6 +771,27 @@ input[type='time'] {
   -webkit-appearance: none;
   appearance: none;
 }
+/* 일정 추가 시트 헤더 우측의 반복 옵션 */
+.repeat-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.repeat-inline select {
+  width: auto;
+  min-width: 78px;
+  padding: 6px 28px 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 99px;
+  /* 데스크톱 브라우저의 네이티브 셀렉트 외형(화살표·패딩) 제거 후 커스텀 ▾ */
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239aa1ab' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
 .seg {
   display: flex;
   background: var(--surface-2);

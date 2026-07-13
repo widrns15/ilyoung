@@ -4,6 +4,7 @@ import { useApp } from '../state/AppContext';
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
+  canAutoFocus,
   categoryEmoji,
   won,
 } from '../lib/meta';
@@ -74,11 +75,6 @@ export default function RecurringSheet({ onClose }) {
     <Sheet onClose={onClose} label="반복 일정">
       <div className="sheet-head">
         <span className="sheet-title">반복 일정</span>
-        {!editing && (
-          <button className="today-btn" onClick={() => setEditing({})}>
-            + 새 규칙
-          </button>
-        )}
       </div>
 
       {editing ? (
@@ -92,9 +88,9 @@ export default function RecurringSheet({ onClose }) {
           {rules === null && <div className="empty">불러오는 중…</div>}
           {rules?.length === 0 && (
             <div className="empty">
-              매달 반복되는 입출금이나 매년 돌아오는 날(생일 등)을 등록해보세요.
+              아직 반복 규칙이 없어요.
               <br />
-              가계부와 캘린더에 자동으로 반영돼요.
+              일정·내역을 추가할 때 🔁 반복을 선택하면 여기 모여요.
             </div>
           )}
           {rules?.map((r) => (
@@ -321,7 +317,7 @@ function RuleForm({ initial, onCancel, onSaved }) {
           <input
             placeholder="무슨 날인가요? (예: 주인님 생일)"
             required
-            autoFocus={!editing}
+            autoFocus={!editing && canAutoFocus()}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={40}
@@ -384,7 +380,7 @@ function RuleForm({ initial, onCancel, onSaved }) {
               inputMode="numeric"
               placeholder="0"
               required
-              autoFocus={!editing}
+              autoFocus={!editing && canAutoFocus()}
               value={amount ? won(amount) : ''}
               onChange={(e) => setAmountStr(e.target.value)}
               aria-label="금액"

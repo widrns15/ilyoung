@@ -54,7 +54,11 @@ export default function EventModal({ initial, defaultDay, txs, onClose, onSaved 
     setBusy(false)
     if (ok) {
       if (!editing) {
-        notifyPartner({ title: `${profile.display_name}님이 일정을 추가했어요`, body: title.trim() })
+        // 알림 본문에 일정 날짜를 함께 — 다일이면 기간으로 표시
+        const when = date === endDate
+          ? format(starts, 'M월 d일')
+          : `${format(starts, 'M월 d일')} – ${format(ends, 'M월 d일')}`
+        notifyPartner({ title: `${profile.display_name}님이 일정을 추가했어요`, body: `${when} · ${title.trim()}` })
       }
       toast(editing ? '일정을 수정했어요.' : '일정을 추가했어요.'); onSaved(); onClose()
     }

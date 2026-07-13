@@ -379,10 +379,6 @@ button:focus-visible {
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-/* 다일 막대는 폭 여유가 있으니 양 끝 여백을 더 준다 (단일 칸은 글자 공간 확보 위해 좁게 유지) */
-.cal-bar.span {
-  margin: 0 8px;
-}
 .cal-bar.dim {
   opacity: 0.4;
 }

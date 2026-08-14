@@ -102,6 +102,22 @@ export function AppProvider({ children }) {
     } catch { /* noop */ }
   }, [])
 
+  // 부팅 워치독: getSession 이 잠금 등으로 멈춰 '불러오는 중'에 갇히면 1회 자동 새로고침
+  useEffect(() => {
+    if (session !== undefined) {
+      try { sessionStorage.removeItem('1+0-boot-retry') } catch { /* noop */ }
+      return
+    }
+    const t = setTimeout(() => {
+      try {
+        if (sessionStorage.getItem('1+0-boot-retry')) return
+        sessionStorage.setItem('1+0-boot-retry', '1')
+        window.location.reload()
+      } catch { /* noop */ }
+    }, 4000)
+    return () => clearTimeout(t)
+  }, [session])
+
   // 세션 부트스트랩
   useEffect(() => {
     let mounted = true

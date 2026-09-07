@@ -5,6 +5,7 @@ import { useApp } from '../state/AppContext'
 import { useCoupleData } from '../state/useCoupleData'
 import CalendarGrid from '../components/CalendarGrid'
 import DaySheet from '../components/DaySheet'
+import EmojiBurst from '../components/EmojiBurst'
 import EventModal from '../components/EventModal'
 import TxModal from '../components/TxModal'
 import StatsView from './StatsView'
@@ -18,6 +19,13 @@ const TABS = [
   { id: 'events', label: '일정', icon: '📅' },
   { id: 'money', label: '가계부', icon: '₩' },
   { id: 'stats', label: '통계', icon: '◔' },
+]
+
+// 특별한 날 시트를 열면 튀어오르는 이모지 (기념일은 하트)
+const HEART_EMOJIS = ['💞', '💕', '❤️', '💖', '🩷']
+const SPECIAL_BURSTS = [
+  { month: 9, day: 15, emojis: ['⛓️', '🖤'] }, // 채찍 이모지는 유니코드에 없어 대체 — 취향대로 교체
+  { month: 10, day: 15, emojis: ['🐱', '😺', '🐈', '🐾'] },
 ]
 
 export default function Shell() {
@@ -76,6 +84,15 @@ export default function Shell() {
     () => upcomingPreviews(rules, range.start, range.end),
     [rules, range]
   )
+
+  // 선택한 날이 특별한 날이면 시트 위로 이모지 팝
+  const burstEmojis = useMemo(() => {
+    if (!selectedDay) return null
+    if (annivMarks[format(selectedDay, 'yyyy-MM-dd')]) return HEART_EMOJIS
+    const m = selectedDay.getMonth() + 1
+    const d = selectedDay.getDate()
+    return SPECIAL_BURSTS.find((s) => s.month === m && s.day === d)?.emojis || null
+  }, [selectedDay, annivMarks])
 
   // 실제 일정 + 반복 규칙에서 펼친 가상 일정 (표시 전용)
   const displayEvents = useMemo(
@@ -210,6 +227,9 @@ export default function Shell() {
         ))}
       </nav>
 
+      {selectedDay && burstEmojis && (
+        <EmojiBurst key={format(selectedDay, 'yyyy-MM-dd')} emojis={burstEmojis} />
+      )}
       {selectedDay && !eventModal && !txModal && (
         <DaySheet
           day={selectedDay}

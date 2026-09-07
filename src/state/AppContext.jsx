@@ -156,7 +156,7 @@ export function AppProvider({ children }) {
         sessionStorage.setItem('1+0-boot-retry', '1')
       } catch { /* noop */ }
       window.location.reload()
-    }, 6000)
+    }, 4000)
 
     supabase.auth.getSession().then(async ({ data }) => {
       resolved = true
@@ -190,7 +190,7 @@ export function AppProvider({ children }) {
       if (s) await loadCoupleState(s.user.id)
       else {
         setProfile(null); setPartner(null); setCouple(null)
-        try { localStorage.removeItem(CACHE_KEY) } catch { /* noop */ }
+        try { localStorage.removeItem(CACHE_KEY); localStorage.removeItem('1+0-data-cache') } catch { /* noop */ }
       }
     })
     return () => { mounted = false; clearTimeout(watchdog); sub.subscription.unsubscribe() }

@@ -1369,3 +1369,40 @@ input[type='time'] {
   padding: 8px 12px;
   text-align: right;
 }
+
+/* 앱 진입 스플래시 */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #141016;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  transition: opacity 0.35s ease;
+}
+.splash.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #141016;
+}
+.splash .splash-fallback {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  gap: 14px;
+}
+.splash .splash-fallback h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f5f0f2;
+}

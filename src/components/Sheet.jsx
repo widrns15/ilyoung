@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 let openCount = 0
 
 // 공용 바텀 시트: 딤 탭 또는 아래로 쓸어내려서 닫기
-export default function Sheet({ onClose, label, children }) {
+// lifted: 드래그로 항목을 시트 밖으로 끌어낸 동안 시트·딤을 투명하게 (뒤 캘린더가 보이게)
+export default function Sheet({ onClose, label, lifted = false, children }) {
   const ref = useRef(null)
   const depth = useRef(openCount).current
   useEffect(() => {
@@ -66,13 +67,13 @@ export default function Sheet({ onClose, label, children }) {
     <>
       {/* 중첩 시트는 z-index를 올려 딤이 뒤 시트까지 덮게 한다 */}
       <div
-        className={`sheet-backdrop ${depth > 0 ? 'deep' : ''}`}
+        className={`sheet-backdrop ${depth > 0 ? 'deep' : ''} ${lifted ? 'sheet-lifted' : ''}`}
         style={depth > 0 ? { zIndex: 40 + depth * 2 } : undefined}
         onClick={onClose}
       />
       <div
         ref={ref}
-        className="sheet"
+        className={`sheet ${lifted ? 'sheet-lifted' : ''}`}
         role="dialog"
         aria-label={label}
         style={{

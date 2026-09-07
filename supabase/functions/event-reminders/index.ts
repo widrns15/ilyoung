@@ -1,8 +1,9 @@
-// 일정 전날 알림 — '내일(KST)' 시작하는 일정을 찾아 그 커플 멤버 전원에게 푸시
-// 매일 1회 cron 으로 호출(아래 _cron.sql 참고). KST 08:00 실행 권장.
+// 전날 알림 — '내일(KST)' 기준으로 아래를 찾아 커플 멤버 전원에게 푸시:
+//   1) 내일 시작하는 실제 일정(events)
+//   2) 내일 도래하는 반복 일정(recurring_events, 매월/매년)
+//   3) 내일이 기념일 마일스톤(100일 단위 · n주년)인 커플
+// 매일 1회 cron 으로 호출(_cron.sql 참고). KST 09:00 실행 기준.
 // 배포: supabase functions deploy event-reminders --no-verify-jwt
-// 시크릿: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
-// 한계: 반복(가상) 일정은 제외 — 실제 events 행만 대상.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
@@ -15,45 +16,100 @@ webpush.setVapidDetails(
   Deno.env.get('VAPID_PRIVATE_KEY')!,
 )
 
-const KST_OFFSET = 9 * 3600 * 1000
+const KST = 9 * 3600 * 1000
+const DAY = 86400000
+
+// 'KST 기준 내일'을 UTC 자정 Date 로 표현 (날짜 계산 전용)
+function kstTomorrow() {
+  const t = new Date(Date.now() + KST)
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() + 1))
+}
+const lastDayOf = (y: number, m0: number) => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate()
 
 Deno.serve(async () => {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
-  // 'KST 기준 내일' 날짜를 구해 그 하루를 UTC 범위로 환산
-  const kstNow = new Date(Date.now() + KST_OFFSET)
-  const y = kstNow.getUTCFullYear()
-  const m = kstNow.getUTCMonth()
-  const d = kstNow.getUTCDate() + 1 // 내일
-  const startUtc = new Date(Date.UTC(y, m, d, 0, 0, 0) - KST_OFFSET)
-  const endUtc = new Date(Date.UTC(y, m, d, 23, 59, 59) - KST_OFFSET)
+  const tomorrow = kstTomorrow()
+  const startUtc = new Date(tomorrow.getTime() - KST)
+  const endUtc = new Date(startUtc.getTime() + DAY - 1000)
+  const ty = tomorrow.getUTCFullYear()
+  const tm = tomorrow.getUTCMonth() + 1
+  const td = tomorrow.getUTCDate()
 
-  const { data: events } = await admin
-    .from('events')
-    .select('id, title, couple_id, starts_at')
-    .gte('starts_at', startUtc.toISOString())
-    .lte('starts_at', endUtc.toISOString())
+  const [eventsQ, recsQ, couplesQ] = await Promise.all([
+    admin
+      .from('events')
+      .select('id, title, couple_id, starts_at')
+      .gte('starts_at', startUtc.toISOString())
+      .lte('starts_at', endUtc.toISOString()),
+    admin
+      .from('recurring_events')
+      .select('id, title, couple_id, freq, month, day')
+      .eq('active', true),
+    admin.from('couples').select('id, anniversary').not('anniversary', 'is', null),
+  ])
 
-  // 커플별 구독 캐시
+  type Msg = { couple: string; title: string; body: string; tag: string }
+  const msgs: Msg[] = []
+
+  // 1) 실제 일정
+  for (const ev of eventsQ.data || []) {
+    msgs.push({
+      couple: ev.couple_id,
+      title: '내일 일정이 있어요',
+      body: ev.title,
+      tag: `event-${ev.id}`,
+    })
+  }
+
+  // 2) 반복 일정 (일수가 모자라는 달은 말일로)
+  for (const r of recsQ.data || []) {
+    const due = Math.min(r.day, lastDayOf(ty, tm - 1))
+    const hit = r.freq === 'monthly' ? due === td : r.month === tm && due === td
+    if (hit) {
+      msgs.push({
+        couple: r.couple_id,
+        title: '내일 일정이 있어요',
+        body: `🔁 ${r.title}`,
+        tag: `rec-${r.id}`,
+      })
+    }
+  }
+
+  // 3) 기념일 마일스톤 — 사귄 날 = 1일 (앱 계산과 동일)
+  for (const c of couplesQ.data || []) {
+    const base = new Date(c.anniversary + 'T00:00:00Z')
+    let label: string | null = null
+    const n = Math.round((tomorrow.getTime() - base.getTime()) / DAY) + 1
+    if (n >= 100 && n % 100 === 0) label = `${n}일`
+    if (base.getUTCMonth() + 1 === tm && base.getUTCDate() === td && ty > base.getUTCFullYear()) {
+      label = `${ty - base.getUTCFullYear()}주년`
+    }
+    if (label) {
+      msgs.push({
+        couple: c.id,
+        title: '내일은 특별한 날이에요 💞',
+        body: `우리 ${label}`,
+        tag: `anniv-${c.id}-${label}`,
+      })
+    }
+  }
+
+  // 커플별 구독 캐시 후 발송
   const subsByCouple = new Map<string, { endpoint: string; p256dh: string; auth: string }[]>()
   let sent = 0
 
-  for (const ev of events || []) {
-    let subs = subsByCouple.get(ev.couple_id)
+  for (const m of msgs) {
+    let subs = subsByCouple.get(m.couple)
     if (!subs) {
       const { data } = await admin
         .from('push_subscriptions')
         .select('endpoint, p256dh, auth')
-        .eq('couple_id', ev.couple_id)
+        .eq('couple_id', m.couple)
       subs = data || []
-      subsByCouple.set(ev.couple_id, subs)
+      subsByCouple.set(m.couple, subs)
     }
-    const payload = JSON.stringify({
-      title: '내일 일정이 있어요',
-      body: ev.title,
-      url: '/',
-      tag: `event-${ev.id}`,
-    })
+    const payload = JSON.stringify({ title: m.title, body: m.body, url: '/', tag: m.tag })
     for (const s of subs) {
       try {
         await webpush.sendNotification(
@@ -70,7 +126,7 @@ Deno.serve(async () => {
     }
   }
 
-  return new Response(JSON.stringify({ events: events?.length || 0, sent }), {
+  return new Response(JSON.stringify({ messages: msgs.length, sent }), {
     headers: { 'Content-Type': 'application/json' },
   })
 })

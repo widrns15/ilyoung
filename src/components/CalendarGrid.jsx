@@ -8,6 +8,9 @@ import { compactWon } from '../lib/meta'
 
 const WEEK = ['일', '월', '화', '수', '목', '금', '토']
 const LONG_PRESS_MS = 450
+// 드래그 중 화면 가장자리에 머무르면 이전/다음 달로 넘김
+const FLIP_EDGE_PX = 36
+const FLIP_HOLD_MS = 550
 
 // 일정이 해당 날짜에 걸쳐 있는지 (다일 일정 지원)
 function eventOnDay(ev, day) {
@@ -89,6 +92,15 @@ export default function CalendarGrid({
 
   const colorOf = (id) => profiles.find((p) => p.id === id)?.color || '#9aa1ab'
 
+  // 월 전환 방향 — 다음 달이면 오른쪽에서, 이전 달이면 왼쪽에서 슬라이드 인
+  const monthKey = format(monthDate, 'yyyy-MM')
+  const prevMonth = useRef(monthDate)
+  const slideDir = useRef(0)
+  if (format(prevMonth.current, 'yyyy-MM') !== monthKey) {
+    slideDir.current = monthDate > prevMonth.current ? 1 : -1
+    prevMonth.current = monthDate
+  }
+
   const txByDate = useMemo(() => {
     const map = {}
     for (const t of txs) {
@@ -99,12 +111,16 @@ export default function CalendarGrid({
     return map
   }, [txs])
 
-  // ----- 일정 막대 꾹 눌러서 드래그 이동 / 삭제 -----
+  // ----- 일정 막대 꾹 눌러서 드래그 이동 / 삭제 / 가장자리 대기 시 월 이동 -----
   const [dragEv, setDragEv] = useState(null)
   const [overKey, setOverKey] = useState(null) // 'yyyy-MM-dd' | 'trash' | null
   const ghostRef = useRef(null)
   const press = useRef(null)
   const recentDrag = useRef(false)
+  // 드래그 중 월이 바뀌면 막대 DOM이 사라져 캡처가 끊기므로, 드래그 단계는
+  // window 리스너로 처리한다. 콜백은 ref 로 최신을 읽는다(달 전환 후 stale 방지).
+  const cb = useRef({})
+  cb.current = { onSwipe, onMoveEvent, onDeleteEvent }
 
   const positionGhost = (x, y) => {
     const g = ghostRef.current
@@ -121,6 +137,54 @@ export default function CalendarGrid({
     return weeks[wi][col]
   }
 
+  const dragMove = (e) => {
+    const p = press.current
+    if (!p?.dragging) return
+    positionGhost(e.clientX, e.clientY)
+    const hit = document.elementFromPoint(e.clientX, e.clientY)
+    const key = hit?.closest('.drag-trash')
+      ? 'trash'
+      : hit?.closest('[data-day]')?.dataset.day || null
+    p.overKey = key
+    setOverKey(key)
+
+    // 가장자리에 머무르면 월 이동 (머무는 동안 반복)
+    const dir =
+      e.clientX < FLIP_EDGE_PX ? -1 : e.clientX > window.innerWidth - FLIP_EDGE_PX ? 1 : 0
+    if (dir !== (p.flipDir || 0)) {
+      clearTimeout(p.flipTimer)
+      p.flipTimer = null
+      p.flipDir = dir
+    }
+    if (dir && !p.flipTimer) {
+      p.flipTimer = setTimeout(() => {
+        p.flipTimer = null
+        navigator.vibrate?.(8)
+        cb.current.onSwipe?.(dir)
+      }, FLIP_HOLD_MS)
+    }
+  }
+
+  const dragUp = () => {
+    const p = press.current
+    press.current = null
+    if (!p) return
+    clearTimeout(p.timer)
+    clearTimeout(p.flipTimer)
+    window.removeEventListener('pointermove', dragMove)
+    window.removeEventListener('pointerup', dragUp)
+    window.removeEventListener('pointercancel', dragUp)
+    recentDrag.current = true
+    setTimeout(() => { recentDrag.current = false }, 350)
+    const target = p.overKey
+    setDragEv(null)
+    setOverKey(null)
+    if (target === 'trash') cb.current.onDeleteEvent?.(p.ev)
+    else if (target && target !== format(new Date(p.ev.starts_at), 'yyyy-MM-dd')) {
+      cb.current.onMoveEvent?.(p.ev, target)
+    }
+  }
+
   const barDown = (e, ev, wi) => {
     if (e.button || ev.virtual) return // 가상(반복) 일정은 이동/삭제 불가
     const el = e.currentTarget
@@ -133,44 +197,31 @@ export default function CalendarGrid({
       setDragEv(ev)
       setOverKey(null)
       positionGhost(p.lastX, p.lastY)
+      window.addEventListener('pointermove', dragMove)
+      window.addEventListener('pointerup', dragUp)
+      window.addEventListener('pointercancel', dragUp)
     }, LONG_PRESS_MS)
     press.current = p
   }
 
+  // 막대 자체 핸들러: 드래그 시작 전(길게 누르기 취소·탭)만 담당
   const barMove = (e) => {
     const p = press.current
-    if (!p) return
+    if (!p || p.dragging) return
     p.lastX = e.clientX
     p.lastY = e.clientY
-    if (!p.dragging) {
-      if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 8) {
-        clearTimeout(p.timer)
-        press.current = null
-      }
-      return
+    if (Math.hypot(e.clientX - p.x0, e.clientY - p.y0) > 8) {
+      clearTimeout(p.timer)
+      press.current = null
     }
-    positionGhost(e.clientX, e.clientY)
-    const hit = document.elementFromPoint(e.clientX, e.clientY)
-    if (hit?.closest('.drag-trash')) setOverKey('trash')
-    else setOverKey(hit?.closest('[data-day]')?.dataset.day || null)
   }
 
   const barUp = () => {
     const p = press.current
+    if (!p || p.dragging) return // 드래그 종료는 window 의 dragUp 이 처리
     press.current = null
-    if (!p) return
     clearTimeout(p.timer)
-    if (!p.dragging) {
-      onSelectDay(dayFromOverlay(p.overlayEl, p.wi, p.lastX))
-      return
-    }
-    recentDrag.current = true
-    setTimeout(() => { recentDrag.current = false }, 350)
-    const target = overKey
-    setDragEv(null)
-    setOverKey(null)
-    if (target === 'trash') onDeleteEvent?.(p.ev)
-    else if (target && target !== format(new Date(p.ev.starts_at), 'yyyy-MM-dd')) onMoveEvent?.(p.ev, target)
+    onSelectDay(dayFromOverlay(p.overlayEl, p.wi, p.lastX))
   }
 
   // 드래그 중 스크롤 차단
@@ -213,7 +264,12 @@ export default function CalendarGrid({
           <span key={w} className={i === 0 ? 'sun' : i === 6 ? 'sat' : ''}>{w}</span>
         ))}
       </div>
-      <div className="cal-grid" role="grid">
+      {/* key 로 월마다 리마운트 → 전환 때마다 방향 슬라이드 재생 */}
+      <div
+        className={`cal-grid ${slideDir.current === 1 ? 'slide-next' : slideDir.current === -1 ? 'slide-prev' : ''}`}
+        role="grid"
+        key={monthKey}
+      >
         {weeks.map((week, wi) => {
           const layout = layouts[wi]
           const meta = weekMeta(layout, maxLanes)

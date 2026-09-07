@@ -220,6 +220,8 @@ export default function Shell() {
           onAddEvent={(day) => setEventModal({ day })}
           onAddTx={(day) => setTxModal({ day })}
           onReorderEvents={reorderEvents}
+          onMoveEvent={moveEvent}
+          onFlipMonth={moveMonth}
           rules={rules}
           onEditEvent={(ev) => setEventModal({ initial: ev, day: selectedDay })}
           onEditTx={(t) => setTxModal({ initial: t, day: selectedDay })}

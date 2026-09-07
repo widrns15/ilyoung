@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 const RETRY_KEY = '1+0-boot-retry'
 const MAX_MS = 4000 // 무슨 일이 있어도 이 시간 뒤엔 내린다 (부팅이 늦어도 갇히지 않게)
-const VIDEO_WAIT_MS = 1500 // 영상이 이 안에 재생 준비가 안 되면 로고 폴백
+const VIDEO_WAIT_MS = 2000 // 영상이 이 안에 재생 준비가 안 되면 로고 폴백 (1.6MB, faststart 라 보통 훨씬 일찍 준비됨)
 const FALLBACK_MS = 1200 // 폴백(로고)만 보여줄 최소 시간
 const FADE_MS = 350
 

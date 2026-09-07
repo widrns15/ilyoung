@@ -16,6 +16,20 @@ function readCoupleCache(userId) {
   }
 }
 
+// supabase-js 가 localStorage 에 저장해 둔 세션을 직접 읽는다.
+// getSession() 은 토큰 갱신·네트워크에 얽혀 iOS 복귀 직후 멈출 수 있어서,
+// 부팅은 이 값으로 즉시 진입하고 서버 확인은 백그라운드에서 한다.
+function readStoredSession() {
+  try {
+    const ref = new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0]
+    const raw = localStorage.getItem(`sb-${ref}-auth-token`)
+    const s = JSON.parse(raw)
+    return s?.user ? s : null
+  } catch {
+    return null
+  }
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(undefined) // undefined = 확인 중
   const [profile, setProfile] = useState(null)
@@ -121,8 +135,29 @@ export function AppProvider({ children }) {
   // 세션 부트스트랩
   useEffect(() => {
     let mounted = true
+
+    // 즉시 진입 경로: 저장된 세션 + 커플 캐시가 있으면 네트워크를 기다리지 않는다.
+    // (iOS PWA 복귀 직후 getSession 이 토큰 갱신에 막혀도 스피너에 갇히지 않게)
+    const stored = readStoredSession()
+    if (stored) {
+      const cached = readCoupleCache(stored.user.id)
+      if (cached) {
+        setSession(stored)
+        setProfile(cached.profile)
+        setPartner(cached.partner)
+        setCouple(cached.couple)
+        setBooting(false)
+      }
+    }
+
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return
+      // 일시적 네트워크 문제로 세션 확인이 실패해도, 캐시로 이미 진입했다면
+      // 로그인 화면으로 내쫓지 않는다 (진짜 로그아웃은 onAuthStateChange 가 처리)
+      if (!data.session && stored) {
+        setBooting(false)
+        return
+      }
       setSession(data.session)
       if (data.session) {
         const cached = readCoupleCache(data.session.user.id)

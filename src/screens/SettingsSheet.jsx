@@ -39,13 +39,21 @@ export default function SettingsSheet({ onClose }) {
   const togglePush = async () => {
     if (pushBusy) return;
     setPushBusy(true);
+    // 매달리면 토글이 잠기지 않게 타임아웃으로 보호
+    const withTimeout = (p) =>
+      Promise.race([
+        p,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('요청이 지연되고 있어요. 다시 시도해주세요.')), 8000),
+        ),
+      ]);
     try {
       if (pushOn) {
-        await disablePush();
+        await withTimeout(disablePush());
         setPushOn(false);
         toast('알림을 껐어요.');
       } else {
-        await enablePush(profile);
+        await withTimeout(enablePush(profile));
         setPushOn(true);
         toast('알림을 켰어요.');
       }

@@ -75,9 +75,20 @@ export function AppProvider({ children }) {
         return { ok: false }
       }
       try {
-        const data = await fn()
+        // 인증 웨지 등으로 요청이 영영 안 끝나면 UI 가 잠기므로 타임아웃을 둔다
+        const data = await Promise.race([
+          fn(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 5000)
+          ),
+        ])
         return { ok: true, data }
       } catch (e) {
+        if (e?.message === 'timeout') {
+          toast('응답이 지연되고 있어요. 앱을 새로고침할게요.')
+          setTimeout(() => window.location.reload(), 1200)
+          return { ok: false, error: e }
+        }
         const msg = e?.message || ''
         if (!navigator.onLine || /fetch|network/i.test(msg)) {
           toast('네트워크 연결을 확인하고 다시 시도해주세요.')
@@ -116,22 +127,6 @@ export function AppProvider({ children }) {
     } catch { /* noop */ }
   }, [])
 
-  // 부팅 워치독: getSession 이 잠금 등으로 멈춰 '불러오는 중'에 갇히면 1회 자동 새로고침
-  useEffect(() => {
-    if (session !== undefined) {
-      try { sessionStorage.removeItem('1+0-boot-retry') } catch { /* noop */ }
-      return
-    }
-    const t = setTimeout(() => {
-      try {
-        if (sessionStorage.getItem('1+0-boot-retry')) return
-        sessionStorage.setItem('1+0-boot-retry', '1')
-        window.location.reload()
-      } catch { /* noop */ }
-    }, 4000)
-    return () => clearTimeout(t)
-  }, [session])
-
   // 세션 부트스트랩
   useEffect(() => {
     let mounted = true
@@ -150,7 +145,23 @@ export function AppProvider({ children }) {
       }
     }
 
+    // 워치독: getSession 이 끝나야 supabase 인증이 하이드레이트되어 쓰기가 나간다.
+    // 캐시로 이미 화면에 들어왔더라도(session 이 정의됐더라도) getSession 이
+    // iOS 웨지로 안 끝나면 저장이 영영 멈추므로, 미해결 시 1회 새로고침으로 재초기화한다.
+    let resolved = false
+    const watchdog = setTimeout(() => {
+      if (resolved) return
+      try {
+        if (sessionStorage.getItem('1+0-boot-retry')) return
+        sessionStorage.setItem('1+0-boot-retry', '1')
+      } catch { /* noop */ }
+      window.location.reload()
+    }, 6000)
+
     supabase.auth.getSession().then(async ({ data }) => {
+      resolved = true
+      clearTimeout(watchdog)
+      try { sessionStorage.removeItem('1+0-boot-retry') } catch { /* noop */ }
       if (!mounted) return
       // 일시적 네트워크 문제로 세션 확인이 실패해도, 캐시로 이미 진입했다면
       // 로그인 화면으로 내쫓지 않는다 (진짜 로그아웃은 onAuthStateChange 가 처리)
@@ -182,7 +193,7 @@ export function AppProvider({ children }) {
         try { localStorage.removeItem(CACHE_KEY) } catch { /* noop */ }
       }
     })
-    return () => { mounted = false; sub.subscription.unsubscribe() }
+    return () => { mounted = false; clearTimeout(watchdog); sub.subscription.unsubscribe() }
   }, [loadCoupleState])
 
   // 프로필 변경 실시간 구독 (파트너 참여 / 이름·색 변경 감지)

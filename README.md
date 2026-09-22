@@ -23,6 +23,8 @@
 - 웹 푸시 알림: 상대가 일정/내역을 추가하면 즉시, 전날 아침엔 리마인더 —
   일정·반복 일정·기념일 마일스톤(100일 단위, n주년) 모두
   (설정 > 알림 토글 · 세팅은 `PUSH_SETUP.md`)
+- 가계부 리마인드: 일요일 저녁 **주말 결산**(이번 주 지출·지난주 대비·최다 분류),
+  5일간 기록이 없으면 **미기록 리마인드**(5일마다, 30일까지) — 설정에서 각각 on/off
 - 아이폰 위젯: Scriptable 로 홈/잠금화면에 D-day 와 다가오는 일정 표시
   (세팅은 `WIDGET_SETUP.md`)
 - 월 예산: 예산을 정하면 캘린더 위에 남은 금액과 진행률 바 표시
@@ -78,8 +80,8 @@ Netlify, Cloudflare Pages도 동일하게 동작합니다.
 
 ### 6. 선택 세팅
 
-- **푸시 알림**(파트너 활동 + 일정 전날): `PUSH_SETUP.md`
-  — VAPID 키, `migration-004`, Edge Function `notify`/`event-reminders`, pg_cron
+- **푸시 알림**(파트너 활동 + 일정 전날 + 가계부 리마인드): `PUSH_SETUP.md`
+  — VAPID 키, `migration-004`/`005`, Edge Function `notify`/`event-reminders`/`ledger-reminders`, pg_cron
 - **아이폰 위젯**: `WIDGET_SETUP.md`
   — Edge Function `widget-feed` + Scriptable 스크립트(`scriptable/onezero-widget.js`)
 
@@ -90,8 +92,8 @@ supabase/schema.sql       # 테이블 + RLS + 커플 연결 함수 (신규 설�
 supabase/migration-00N-*  # 기존 DB용 마이그레이션 (001 반복거래/예산/기념일,
                           # 002 반복 일정, 003 일정 순서, 004 푸시 구독)
 supabase/functions/       # Edge Functions: notify(파트너 알림),
-                          # event-reminders(전날 알림, _cron.sql 로 스케줄),
-                          # widget-feed(위젯 데이터)
+                          # event-reminders(전날 알림), ledger-reminders(주말 결산·미기록 리마인드)
+                          #   — 둘 다 _cron.sql 로 스케줄, widget-feed(위젯 데이터)
 scriptable/               # 아이폰 위젯 스크립트 (Scriptable 용)
 public/push-sw.js         # 서비스워커 푸시 수신 핸들러
 src/

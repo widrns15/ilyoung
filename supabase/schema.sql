@@ -245,3 +245,12 @@ alter table public.recurring_events enable row level security;
 create policy "recurring_events: couple all" on public.recurring_events
   for all using (couple_id = public.my_couple_id())
   with check (couple_id = public.my_couple_id());
+
+-- ============================================================
+-- 가계부 리마인드 알림 설정 (주말 결산 / 미기록 리마인드, 사람별 on/off)
+-- (기존 DB는 supabase/migration-005-ledger-reminders.sql 참고)
+-- ============================================================
+
+alter table public.profiles add column remind_recap boolean not null default true;
+alter table public.profiles add column remind_idle boolean not null default true;
+grant update (remind_recap, remind_idle) on public.profiles to authenticated;

@@ -92,6 +92,23 @@ export default function SettingsSheet({ onClose }) {
     );
   };
 
+  // 가계부 리마인드 사람별 설정 (컬럼이 아직 없는 캐시 프로필은 켜진 것으로 본다)
+  const remindRecap = profile?.remind_recap !== false;
+  const remindIdle = profile?.remind_idle !== false;
+  const toggleRemind = async (col, next, msg) => {
+    const { ok } = await guard(async () => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ [col]: next })
+        .eq('id', profile.id);
+      if (error) throw error;
+    });
+    if (ok) {
+      toast(msg);
+      refreshCouple();
+    }
+  };
+
   const saveName = async () => {
     const v = name.trim();
     if (!v || v === profile.display_name) return;
@@ -262,9 +279,71 @@ export default function SettingsSheet({ onClose }) {
                   className="k"
                   style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500 }}
                 >
-                  상대의 일정·가계부 추가, 일정 전날 알림을 받아요.
+                  상대의 일정·가계부 추가, 일정·기념일 전날 알림을 받아요.
                 </span>
               </div>
+              {pushOn && (
+                <>
+                  <div className="settings-row">
+                    <span className="k">
+                      주말 결산
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: 12,
+                          color: 'var(--muted)',
+                          fontWeight: 500,
+                          marginTop: 2,
+                        }}
+                      >
+                        일요일 저녁, 이번 주 지출을 정리해 알려요.
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className={`toggle ${remindRecap ? 'on' : ''}`}
+                      onClick={() =>
+                        toggleRemind(
+                          'remind_recap',
+                          !remindRecap,
+                          remindRecap ? '주말 결산 알림을 껐어요.' : '주말 결산 알림을 켰어요.',
+                        )
+                      }
+                      aria-pressed={remindRecap}
+                      aria-label="주말 결산 알림"
+                    />
+                  </div>
+                  <div className="settings-row">
+                    <span className="k">
+                      가계부 리마인드
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: 12,
+                          color: 'var(--muted)',
+                          fontWeight: 500,
+                          marginTop: 2,
+                        }}
+                      >
+                        5일 동안 기록이 없으면 저녁에 살짝 알려요.
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className={`toggle ${remindIdle ? 'on' : ''}`}
+                      onClick={() =>
+                        toggleRemind(
+                          'remind_idle',
+                          !remindIdle,
+                          remindIdle ? '가계부 리마인드를 껐어요.' : '가계부 리마인드를 켰어요.',
+                        )
+                      }
+                      aria-pressed={remindIdle}
+                      aria-label="가계부 리마인드"
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </>
         )}
